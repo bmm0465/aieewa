@@ -312,6 +312,15 @@ export default function QuestionGenerator() {
               marginBottom: '1rem',
               textAlign: 'center'
             }}>
+              <div style={{ marginBottom: '0.75rem' }}>
+                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  기본 교과서와 평가 자료가 준비되어 있지 않습니다.
+                </p>
+                <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                  로컬 환경: pdf/ 폴더의 파일을 처리합니다.<br/>
+                  온라인 환경: 관리자가 미리 설정한 자료를 사용합니다.
+                </p>
+              </div>
               <button
                 onClick={() => preprocessDefaultPdfs()}
                 disabled={isUploading}

@@ -2,4 +2,8 @@ node_modules
 
 # PDF 파일들은 Git에서 제외 (로컬에서만 사용)
 pdf/
-*.pdf
+public/pdf/*.pdf
+
+# 하지만 public/pdf 폴더 구조는 유지
+!public/pdf/
+!public/pdf/.gitkeep

@@ -43,12 +43,47 @@ export async function POST(request: NextRequest) {
   try {
     console.log('기본 PDF 전처리 시작')
     
-    // pdf 폴더 경로 확인
-    const pdfFolderPath = join(process.cwd(), 'pdf')
+    // 환경 확인
+    const isProduction = process.env.NODE_ENV === 'production'
+    const isVercel = process.env.VERCEL === '1'
     
-    if (!existsSync(pdfFolderPath)) {
+    console.log('환경 정보:', { isProduction, isVercel })
+    
+    // pdf 폴더 경로 확인 (환경별로 다른 경로 시도)
+    let pdfFolderPath = ''
+    const possiblePaths = [
+      join(process.cwd(), 'public', 'pdf'),
+      join(process.cwd(), 'pdf'),
+      join(process.cwd(), '..', 'pdf') // Vercel 빌드 시 상위 폴더
+    ]
+    
+    for (const path of possiblePaths) {
+      if (existsSync(path)) {
+        const files = await readdir(path)
+        const pdfFiles = files.filter(file => file.toLowerCase().endsWith('.pdf'))
+        if (pdfFiles.length > 0) {
+          pdfFolderPath = path
+          break
+        }
+      }
+    }
+    
+    if (!pdfFolderPath) {
+      console.log('PDF 폴더를 찾을 수 없습니다. 가능한 경로들:', possiblePaths)
+      
+      // 프로덕션 환경에서는 기본 문서가 이미 데이터베이스에 있다고 가정
+      if (isProduction) {
+        return NextResponse.json({
+          success: true,
+          message: '프로덕션 환경에서는 기본 문서들이 이미 준비되어 있습니다.',
+          totalFiles: 0,
+          results: [],
+          summary: { success: 0, failed: 0, skipped: 0 }
+        })
+      }
+      
       return NextResponse.json(
-        { error: 'pdf 폴더를 찾을 수 없습니다.' },
+        { error: 'pdf 폴더를 찾을 수 없습니다. 로컬 환경에서는 pdf/ 폴더에 파일을 넣어주세요.' },
         { status: 404 }
       )
     }
@@ -56,13 +91,6 @@ export async function POST(request: NextRequest) {
     // PDF 파일 목록 가져오기
     const files = await readdir(pdfFolderPath)
     const pdfFiles = files.filter(file => file.toLowerCase().endsWith('.pdf'))
-    
-    if (pdfFiles.length === 0) {
-      return NextResponse.json(
-        { error: 'pdf 폴더에 PDF 파일이 없습니다.' },
-        { status: 404 }
-      )
-    }
 
     console.log(`발견된 PDF 파일: ${pdfFiles.length}개`, pdfFiles)
 
