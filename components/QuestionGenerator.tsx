@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 interface GeneratedQuestion {
   단원_및_학년: string
@@ -28,6 +28,54 @@ export default function QuestionGenerator() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuestion, setGeneratedQuestion] = useState<GeneratedQuestion | null>(null)
   const [error, setError] = useState('')
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.type !== 'application/pdf') {
+      setError('PDF 파일만 업로드할 수 있습니다.')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('파일 크기는 10MB를 초과할 수 없습니다.')
+      return
+    }
+
+    setIsUploading(true)
+    setError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload-document', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || '파일 업로드에 실패했습니다.')
+      }
+
+      setUploadedFiles(prev => [...prev, file.name])
+      console.log('파일 업로드 성공:', data)
+    } catch (error) {
+      console.error('파일 업로드 오류:', error)
+      setError(error instanceof Error ? error.message : '파일 업로드에 실패했습니다.')
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
 
   const handleGenerate = async () => {
     if (!request.trim()) {
@@ -151,6 +199,107 @@ export default function QuestionGenerator() {
         border: '1px solid #e2e8f0',
         marginBottom: '2rem'
       }}>
+        {/* 파일 업로드 섹션 */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '0.75rem'
+          }}>
+            참고 문서 업로드 (선택사항)
+          </label>
+          <div style={{ marginBottom: '1rem' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              onChange={handleFileUpload}
+              disabled={isUploading}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              style={{
+                padding: '0.75rem 1rem',
+                border: '2px dashed #3b82f6',
+                borderRadius: '0.5rem',
+                backgroundColor: isUploading ? '#f3f4f6' : '#f8faff',
+                color: '#3b82f6',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: isUploading ? 'not-allowed' : 'pointer',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {isUploading ? (
+                <>
+                  <div style={{
+                    width: '1rem',
+                    height: '1rem',
+                    border: '2px solid transparent',
+                    borderTop: '2px solid currentColor',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }}></div>
+                  업로드 중...
+                </>
+              ) : (
+                <>
+                  📄 PDF 파일 선택하기
+                </>
+              )}
+            </button>
+            <p style={{
+              fontSize: '0.75rem',
+              color: '#6b7280',
+              marginTop: '0.5rem',
+              textAlign: 'center'
+            }}>
+              교과서나 평가 문항 PDF를 업로드하면 더 정확한 문항 생성이 가능합니다. (최대 10MB)
+            </p>
+          </div>
+          
+          {/* 업로드된 파일 목록 */}
+          {uploadedFiles.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <p style={{
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                업로드된 파일:
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {uploadedFiles.map((filename, index) => (
+                  <span
+                    key={index}
+                    style={{
+                      padding: '0.25rem 0.75rem',
+                      backgroundColor: '#e0f2fe',
+                      color: '#0369a1',
+                      borderRadius: '1rem',
+                      fontSize: '0.75rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    📄 {filename}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ 
             display: 'block',

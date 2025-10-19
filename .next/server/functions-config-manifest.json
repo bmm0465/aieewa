@@ -1,1 +1,1 @@
-{"version":1,"functions":{"/api/evaluate-answer-aas":{"maxDuration":60},"/api/evaluate-answer":{"maxDuration":60},"/api/generate-question":{"maxDuration":60},"/api/questions":{}}}
+{"version":1,"functions":{"/api/evaluate-answer-aas":{"maxDuration":60},"/api/evaluate-answer":{"maxDuration":60},"/api/generate-question":{"maxDuration":60},"/api/questions":{},"/api/upload-document":{"maxDuration":60}}}

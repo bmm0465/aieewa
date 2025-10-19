@@ -4,6 +4,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers'
 import { Document } from '@langchain/core/documents'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from './types/aqg'
+import { getServerSupabaseClient } from './supabase'
 
 // 환경 변수 설정
 if (typeof window === 'undefined') {
@@ -47,11 +48,50 @@ export class AQGAgent {
     }
   }
 
-  // 간단한 검색 설정 (배포 환경에서 벡터 스토어 제거)
+  // RAG 검색 초기화
   async initializeRetrieval() {
-    // 배포 환경에서는 검색 없이 진행
     this.retrieval = {
-      invoke: async () => []
+      invoke: async (query: string) => {
+        try {
+          console.log('RAG 검색 시작:', query)
+          
+          // Supabase가 설정되어 있는지 확인
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+          
+          if (!supabaseUrl || !supabaseKey) {
+            console.log('Supabase 설정이 없어 기본 검색을 사용합니다.')
+            return []
+          }
+
+          const supabase = getServerSupabaseClient()
+          
+          // 간단한 텍스트 검색 (실제로는 벡터 유사도 검색을 사용해야 함)
+          const { data: chunks, error } = await supabase
+            .from('document_chunks')
+            .select('chunk_text, metadata')
+            .ilike('chunk_text', `%${query}%`)
+            .limit(5)
+
+          if (error) {
+            console.error('문서 검색 오류:', error)
+            return []
+          }
+
+          console.log(`검색 결과: ${chunks?.length || 0}개 청크 발견`)
+          
+          // Document 객체로 변환
+          const docs = (chunks || []).map(chunk => new Document({
+            pageContent: chunk.chunk_text,
+            metadata: chunk.metadata || {}
+          }))
+
+          return docs
+        } catch (error) {
+          console.error('RAG 검색 실행 오류:', error)
+          return []
+        }
+      }
     }
   }
 

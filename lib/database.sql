@@ -54,7 +54,31 @@ CREATE TABLE IF NOT EXISTS evaluation_sessions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 문서 테이블 (PDF 업로드 문서 관리)
+CREATE TABLE IF NOT EXISTS documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL,
+  file_size BIGINT NOT NULL,
+  text_content TEXT,
+  chunk_count INTEGER DEFAULT 0,
+  upload_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 문서 청크 테이블 (RAG용 텍스트 청크 저장)
+CREATE TABLE IF NOT EXISTS document_chunks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+  chunk_text TEXT NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 인덱스 설정
 CREATE INDEX IF NOT EXISTS idx_questions_unit_grade ON questions(unit_grade);
 CREATE INDEX IF NOT EXISTS idx_student_answers_question_id ON student_answers(question_id);
 CREATE INDEX IF NOT EXISTS idx_evaluation_sessions_status ON evaluation_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents(filename);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_chunk_index ON document_chunks(chunk_index);
