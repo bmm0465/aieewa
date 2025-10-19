@@ -4,13 +4,11 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@langchain/openai', '@langchain/core']
   },
   poweredByHeader: false,
-  reactStrictMode: true,
+  reactStrictMode: false, // Hydration 문제 방지
   swcMinify: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production'
   },
-  // Ensure proper static generation
-  trailingSlash: false,
   // 정적 파일 처리
   async headers() {
     return [
