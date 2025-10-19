@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { EvaluationAgent } from '@/lib/evaluation-agent'
-import { supabase } from '@/lib/supabase'
+import { getServerSupabaseClient } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 문항 정보 조회
+    const supabase = getServerSupabaseClient()
     const { data: question, error: questionError } = await supabase
       .from('questions')
       .select('*')

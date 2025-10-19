@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AQGAgent } from '@/lib/aqg-agent'
-import { supabase } from '@/lib/supabase'
+import { getServerSupabaseClient } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     const result = await aqgAgent.run(questionRequest)
 
     // 데이터베이스에 저장
+    const supabase = getServerSupabaseClient()
     const { data: questionData, error: questionError } = await supabase
       .from('questions')
       .insert({

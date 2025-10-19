@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getServerSupabaseClient } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 
@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const questionId = searchParams.get('id')
+    const supabase = getServerSupabaseClient()
 
     if (questionId) {
       // 특정 문항 조회
