@@ -4,6 +4,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'AIEEWA - 초등 영어 서술형 평가 시스템',
   description: 'LLM 기반 초등 영어 서술형 평가 문항 생성 및 자동 채점 시스템',
+  viewport: 'width=device-width, initial-scale=1',
 }
 
 export default function RootLayout({
@@ -13,8 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body className="min-h-screen bg-background font-sans antialiased">
-        {children}
+      <body className="min-h-screen bg-gray-50 font-sans antialiased">
+        <div id="root">
+          {children}
+        </div>
       </body>
     </html>
   )
