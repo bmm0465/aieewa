@@ -1,5 +1,12 @@
 node_modules
 
+# 환경 변수 파일 (보안상 중요!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # PDF 파일들은 Git에서 제외 (로컬에서만 사용)
 pdf/
 public/pdf/*.pdf
