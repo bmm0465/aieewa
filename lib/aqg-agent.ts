@@ -1,0 +1,378 @@
+import { ChatOpenAI } from 'langchain/openai'
+import { ChatPromptTemplate, FewShotPromptTemplate, PromptTemplate } from 'langchain/prompts'
+import { StringOutputParser } from 'langchain/output_parsers'
+import { HuggingFaceTransformersEmbeddings } from 'langchain/embeddings/hf_transformers'
+import { FAISS } from 'langchain/vectorstores/faiss'
+import { Document } from 'langchain/document'
+import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from './types/aqg'
+
+// 환경 변수 설정
+if (typeof window === 'undefined') {
+  process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY
+}
+
+// 문서 포맷 함수
+function formatDocs(docs: Document[]): string {
+  return docs.map(doc => doc.pageContent).join("\n\n")
+}
+
+export class AQGAgent {
+  private llmGen: ChatOpenAI
+  private llmJudge: ChatOpenAI
+  private retrieval?: any
+  private parser: any
+
+  constructor() {
+    this.llmGen = new ChatOpenAI({
+      model: "gpt-4o",
+      temperature: 0.3,
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    })
+
+    this.llmJudge = new ChatOpenAI({
+      model: "gpt-4o", 
+      temperature: 0,
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    })
+
+    this.parser = AQGSchema
+  }
+
+  // RAG 검색 설정 (실제 구현에서는 벡터 스토어를 로드해야 함)
+  async initializeRetrieval() {
+    try {
+      // 실제 환경에서는 FAISS 벡터 스토어를 로드
+      // embedding_model_aqg = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
+      // vector_store_aqg = FAISS.load_local("/path/to/vector_store", embedding_model_aqg)
+      // this.retrieval = vector_store_aqg.as_retriever(search_kwargs={"k": 10})
+      
+      // 임시로 빈 검색기 설정
+      this.retrieval = {
+        invoke: async () => []
+      }
+    } catch (error) {
+      console.error('RAG 초기화 실패:', error)
+      this.retrieval = {
+        invoke: async () => []
+      }
+    }
+  }
+
+  // RAG 기반 프롬프트 설정
+  private getPromptTemplate() {
+    const example_aqg = [
+      {
+        context: "context",
+        request: "5학년 10단원 영어 서술형 평가 문항과 채점 기준을 생성해줘.",
+        answer: `예시문: Food Festival
+Can you come to the food festival?
+The festival is on June 10th.
+You can eat some food.
+You can cook some food, too.
+Please come to Green Park at 11.
+
+평가 문항: 예시문을 참고하여 자신이 정한 행사에 초대하는 글을 쓰세요.
+
+조건:
+∙ Food Festival 이외의 행사를 정할 것
+∙ 예시문의 밑줄 친 부분은 모두 다른 표현으로 바꿀 것
+∙ 밑줄 친 부분 이외의 내용도 모두 쓸 것
+∙ 대소문자, 철자법에 맞춰 쓸 것
+
+모범 답안 1:
+Robot Festival
+Can you come to the robot festival?
+The festival is on May 15th.
+You can see many robots.
+You can make your robots, too.
+Please come to the Science Museum at 2.
+
+모범 답안 2:
+Book Festival
+Can you come to the book festival?
+The festival is on September 21st.
+You can buy and sell books.
+You can meet famous writer, too.
+Please come to school library at 12.
+
+분석적 채점 기준(과제수행: 내용의 적절성 및 완성도)
+2점: 조건을 모두 충족하는 경우
+1점: 조건을 모두 충족하지는 못하나 전체적으로 초대의 목적에 맞게 의미가 전달되는 경우
+0점: 무응답 또는 초대의 목적에 맞게 의미가 전달되지 않는 경우
+
+분석적 채점 기준(구성: 응집성 및 일관성)
+2점: 글의 응집성과 일관성이 잘 갖추어져 있는 경우
+1점: 글의 응집성과 일관성이 다소 미흡한 경우
+0점: 무응답 또는 글의 응집성이 전혀 찾아볼 수 없는 경우
+
+분석적 채점 기준(언어사용: 어휘 및 어법의 정확성)
+2점: 대소문자, 어휘 및 어법 오류가 거의 없는 경우
+1점: 대소문자, 어휘 및 어법 오류가 비교적 많은 경우
+0점: 무응답 또는 대소문자, 어휘 및 어법 오류가 매우 많은 경우
+
+총체적 채점 기준 A 수준: 글의 분량이 풍부하며 자신이 세운 계획을 바탕으로 자신의 행사에 관해 체계적으로 서술하였다. 전반적으로 자신이 개최하고자 하는 행사에 관하여 관련성이 높은 내용을 자료에서 선별하여 사용하였고, 응집성 및 일관성이 높아 완성도 있는 글을 작성하였다.
+
+총체적 채점 기준 B 수준: 글의 분량이 적절하며 자신이 세운 계획을 바탕으로 자신의 행사에 관해 적절하게 서술하였다. 자신이 개최하고자 하는 행사에 관하여 관련성이 떨어지는 내용을 포함하거나 꼭 필요한 요소가 빠져 있어 응집성 및 일관성이 부족하고 완성도가 떨어진다.
+
+총체적 채점 기준 C 수준: 글의 분량이 매우 부족하며 자신이 세운 계획을 바탕으로 구성되어 있지 않아 자신이 개최하고자 하는 행사에 관해 미흡하게 서술하였다. 행사에 관한 내용이 부분적으로 포함되어 있긴 하나 관련성이 떨어지는 내용을 포함하여 응집성 및 일관성이 부족하여 완성된 글로 보기 어렵다.
+
+성취수준별 예시 답안 A 수준:
+Robot Festival
+Can you come to the robot festival?
+The festival is on May 15th.
+You can see many robots.
+You can make your robots, too.
+Please come to the Science Museum at 2.
+
+성취수준별 예시 답안 B 수준:
+Robot Festival
+Can you come to the festival?
+The festival is on Decemper 21th.
+You can eat foods. You can play, too.
+Please come to house 12.
+
+성취수준별 예시 답안 C 수준:
+Robot Festival
+Can you come festival?
+The festival Juny 1th.
+You can play Please come 1
+
+성취수준별 평가에 따른 예시 피드백 A: 자신이 생각한 행사에 대해 행사 이름, 날짜와 시간, 장소, 할 일을 계획하고 이에 대해 하나의 글로 작성하였습니다. 글의 흐름이 자연스럽고 어휘와 어법, 철자법과 대소문자의 오류가 없습니다. 다른 친구들의 글을 바꿔 읽고 서로 의견을 나누는 활동이 도움이 될 것입니다.
+
+성취수준별 평가에 따른 예시 피드백 B: 자신이 계획한 행사에 대해 필요한 정보 중 일부만 서술했습니다. 그래서 글의 흐름이 부자연스럽습니다. 초대하는 글에 필요한 정보를 보충하여 자연스럽고 완성된 글의 형태로 작성해 보는 연습을 하세요. 의미는 이해할 수 있으나 어휘 및 어법, 철자법이나 대소문자 사용에 관해 실수가 보이므로 제출하기 전에 스스로 꼼꼼하게 살펴보세요. 다양한 행사 초대장을 찾아 읽어 보고, 그것을 따라 써 보기를 추천합니다.
+
+성취수준별 평가에 따른 예시 피드백 C: 자신이 계획한 행사가 어떤 것인지에 대한 정보가 부족합니다. 초대하는 글에 들어가는 행사 이름, 날짜와 시간, 장소, 할 일에 대한 어휘를 학습하고 문장으로 쓰는 연습을 해 보세요. 그림과 함께 있는 쉽고 간단한 초대 글을 찾아 읽기를 추천합니다.`
+      }
+    ]
+
+    const examplePrompt = new PromptTemplate({
+      inputVariables: ["context", "request", "answer"],
+      template: "context: {context} \n request: {request} \n answer: {answer}"
+    })
+
+    return new FewShotPromptTemplate({
+      examples: example_aqg,
+      examplePrompt: examplePrompt,
+      prefix: `당신은 초등 영어 서술형 평가 문항 및 채점 기준을 전문적으로 개발하는 평가 전문가입니다. 
+당신의 역할은 예시와 검색된 문서 내용을 바탕으로, 초등학생 수준에 적합하고 교육과정에 부합하는 평가 문항과 채점 기준을 생성하는 것입니다. 
+문항과 채점 기준은 다음과 같은 조건을 충족해야 합니다: 
+1) 사용되는 어휘와 문장 구성은 교과서 수준과 유사해야 합니다. 
+2) 예시문이나 모범 답안의 주제나 내용은 창의적이고 초등학생이 흥미를 가질 수 있는 것이어야 합니다. 
+3) 평가 문항과 채점 기준은 내용 타당도가 높도록 구성되어야 하며, 교육과정 성취기준에 부합해야 합니다. 
+이러한 조건을 바탕으로, 적절한 평가 문항과 채점 기준을 생성해주세요.
+
+다음 JSON 형식으로 응답해주세요:
+{
+  "단원_및_학년": "단원과 학년",
+  "예시문": "평가에 사용할 예시문",
+  "평가문항": "서술형 평가 문항",
+  "조건": "서술형 평가 문항 조건",
+  "모범_답안_1": "모범 답안 1",
+  "모범_답안_2": "모범 답안 2",
+  "분석적_채점_기준_1": "답안에 대한 분석적 채점 기준 1의 점수와 점수별 예상 수행",
+  "분석적_채점_기준_2": "답안에 대한 분석적 채점 기준 2의 점수와 점수별 예상 수행",
+  "분석적_채점_기준_3": "답안에 대한 분석적 채점 기준 3의 점수와 점수별 예상 수행",
+  "총체적_채점_기준_A": "총체적 채점 기준의 A 수준",
+  "총체적_채점_기준_B": "총체적 채점 기준의 B 수준",
+  "총체적_채점_기준_C": "총체적 채점 기준의 C 수준",
+  "성취수준별_예시_답안_A": "성취 수준에 따른 A 수준의 예시 답안",
+  "성취수준별_예시_답안_B": "성취 수준에 따른 B 수준의 예시 답안",
+  "성취수준별_예시_답안_C": "성취 수준에 따른 C 수준의 예시 답안",
+  "성취수준별_평가에_따른_예시_피드백_A": "답안 평가에 따른 A 수준의 예시 피드백",
+  "성취수준별_평가에_따른_예시_피드백_B": "답안 평가에 따른 B 수준의 예시 피드백",
+  "성취수준별_평가에_따른_예시_피드백_C": "답안 평가에 따른 C 수준의 예시 피드백"
+}
+
+아래는 평가 문항과 채점 기준 예시입니다.:`,
+      suffix: "context: {context} \n request: {request} \n answer:",
+      inputVariables: ["context", "request"]
+    })
+  }
+
+  // 검색 작업
+  async retrieve(state: GraphStateAQG): Promise<GraphStateAQG> {
+    console.log("[AQG - RETRIEVE]")
+    if (!this.retrieval) {
+      await this.initializeRetrieval()
+    }
+    
+    const docs = await this.retrieval.invoke(state.request)
+    state.context = formatDocs(docs)
+    return state
+  }
+
+  // 요청-문맥 관련성 판단
+  async requestContextRelevanceJudge(state: GraphStateAQG): Promise<string> {
+    console.log("[AQG - REQUEST-CONTEXT JUDGE]")
+    
+    const contextJudgePrompt = ChatPromptTemplate.fromMessages([
+      ["system", `당신은 초등 영어 서술형 평가 문항과 채점 기준 개발 전문가입니다.
+다음은 교사의 요청(request)이 있고, 이를 위해 검색된 문서(context)가 주어졌습니다.
+
+요청과 문서의 관련성을 다음의 4점 척도를 기준으로 평가하세요:
+1점: 관련성이 매우 낮음 - 문서 내용이 요청과 전혀 무관하거나 관련성이 매우 낮음
+2점: 관련성이 낮음 - 문서 내용이 요청한 내용과 일부 관련이 있으나, 핵심적인 정보나 세부 사항이 부족함
+3점: 관련성이 높음 - 문서 내용이 요청한 내용과 대부분 관련이 있으며, 주요 정보와 세부 사항을 포함하고 있음
+4점: 관련성이 매우 높음 - 문서 내용이 요청한 내용과 완전히 일치하며, 요청한 모든 정보와 세부 사항을 포괄적으로 제공함
+
+점수는 숫자로만 반환하세요.`],
+      ["human", "요청: {request} \n 검색된 문서: {context}"]
+    ])
+
+    const chain = contextJudgePrompt.pipe(this.llmJudge).pipe(new StringOutputParser())
+    const result = await chain.invoke({
+      request: state.request,
+      context: state.context
+    })
+
+    const score = parseInt(result.match(/\d+/)?.[0] || "1")
+    console.log(`Request-Context Relevance Score: ${score}`)
+    
+    return score >= 3 ? "relevant" : "not relevant"
+  }
+
+  // 답안 생성
+  async generate(state: GraphStateAQG): Promise<GraphStateAQG> {
+    console.log("[AQG - GENERATE]")
+    
+    const prompt = this.getPromptTemplate()
+    const chain = prompt.pipe(this.llmGen).pipe(new StringOutputParser())
+    
+    const result = await chain.invoke({
+      context: state.context,
+      request: state.request
+    })
+
+    try {
+      // JSON 파싱 시도
+      const cleanedResult = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      const parsedResult = JSON.parse(cleanedResult)
+      state.answer = AQGSchema.parse(parsedResult)
+    } catch (error) {
+      console.error('JSON 파싱 실패:', error)
+      throw new Error('생성된 답안을 파싱할 수 없습니다.')
+    }
+
+    return state
+  }
+
+  // 문맥-답안 관련성 판단
+  async contextAnswerRelevanceJudge(state: GraphStateAQG): Promise<string> {
+    console.log("[AQG - CONTEXT-ANSWER JUDGE]")
+    
+    const hallucinationJudgePrompt = ChatPromptTemplate.fromMessages([
+      ["system", `당신은 초등 영어 서술형 평가 문항과 채점 기준 개발 전문가입니다. 
+다음은 생성된 평가 문항과 채점 기준(answer)이 검색된 문서(context)를 기반으로 작성되었는지 확인하는 평가입니다.
+
+이 평가는 '문서 기반성(factual grounding)'과 '창의적 변형의 허용 범위'를 함께 고려해야 합니다.
+형식, 구조, 평가 관점은 유지하되, 예시문이나 주제 등이 창의적으로 재구성되는 것은 허용됩니다.
+
+다음의 4점 척도 기준에 따라 평가하세요:
+1점: 생성된 대부분의 내용이 검색된 문서의 핵심 정보와 일치하지 않음. 문서와 무관한 주제나 구조가 다수 포함됨.
+2점: 일부 요소는 문서 내용을 따르나, 핵심 평가 문항 구조 또는 기준이 왜곡되거나 근거 없이 크게 변경됨.
+3점: 문서의 핵심 주제와 구조를 바탕으로 적절히 변형되었으며, 평가 목적과 형식은 대부분 유지됨.
+4점: 문서의 핵심 정보와 평가 구조를 충실히 반영하면서도, 예시문 등에서 창의적으로 잘 변형되었음. 교육적으로 적절하고 실용적임.
+
+점수는 숫자로만 반환하세요.`],
+      ["human", "검색된 문서: {context} \n 생성된 평가 문항과 채점 기준: {answer}"]
+    ])
+
+    const answerText = state.answer ? JSON.stringify(state.answer, null, 2) : ""
+    
+    const chain = hallucinationJudgePrompt.pipe(this.llmJudge).pipe(new StringOutputParser())
+    const result = await chain.invoke({
+      context: state.context,
+      answer: answerText
+    })
+
+    const score = parseInt(result.match(/\d+/)?.[0] || "1")
+    console.log(`Context-Answer Relevance Score: ${score}`)
+    
+    return score >= 3 ? "finish" : "hallucination"
+  }
+
+  // 요청 재작성 (낮은 관련성)
+  async requestRewriterLowContext(state: GraphStateAQG): Promise<GraphStateAQG> {
+    console.log("[AQG - TRANSFORM REQUEST(low context)]")
+    
+    const rewriterPrompt = ChatPromptTemplate.fromMessages([
+      ["system", `검색된 문서와 요청의 관련성이 낮습니다. 요청을 벡터 검색 시스템이 더 정확하게 문서를 검색할 수 있도록 다음과 같이 바꿔주세요:
+- 요청의 핵심 주제와 목적을 명확하게 표현
+- 불필요하거나 모호한 표현 제거
+- 단원, 학년, 주제 키워드 강조
+- 예시문 내용과 관련된 핵심 개념이 드러나도록
+
+재작성된 요청은 문서 검색 정확도를 높이는 것을 목표로 합니다.`],
+      ["human", "요청: {request}"]
+    ])
+
+    const chain = rewriterPrompt.pipe(this.llmGen).pipe(new StringOutputParser())
+    state.request = await chain.invoke({ request: state.request })
+    return state
+  }
+
+  // 요청 재작성 (높은 환각)
+  async requestRewriterHighHallucination(state: GraphStateAQG): Promise<GraphStateAQG> {
+    console.log("[AQG - TRANSFORM REQUEST(high hallucination)]")
+    
+    const rewriterPrompt = ChatPromptTemplate.fromMessages([
+      ["system", `생성된 평가 문항과 채점 기준이 검색된 문서에 제대로 기반하지 않았습니다. 
+이 문제를 해결하기 위해, 요청을 다음과 같은 방향으로 바꿔주세요:
+- 요청 목적을 더 구체적으로 설명
+- 참고할 문서의 주제나 내용 키워드를 명확히 제시
+- 예시문, 단원, 학년 등에서 반드시 포함되어야 하는 핵심 정보 포함
+
+요청은 생성 결과가 문서에 충실하게 기초할 수 있도록 유도해야 합니다.`],
+      ["human", "요청: {request}"]
+    ])
+
+    const chain = rewriterPrompt.pipe(this.llmGen).pipe(new StringOutputParser())
+    state.request = await chain.invoke({ request: state.request })
+    return state
+  }
+
+  // 메인 워크플로 실행
+  async run(request: string): Promise<AQG> {
+    await this.initializeRetrieval()
+    
+    let state: GraphStateAQG = { request, context: "" }
+    let retryCount = 0
+    const maxRetries = 3
+
+    while (retryCount < maxRetries) {
+      try {
+        // 1. 검색
+        state = await this.retrieve(state)
+        
+        // 2. 요청-문맥 관련성 판단
+        const relevance = await this.requestContextRelevanceJudge(state)
+        if (relevance === "not relevant") {
+          state = await this.requestRewriterLowContext(state)
+          continue
+        }
+        
+        // 3. 답안 생성
+        state = await this.generate(state)
+        
+        // 4. 문맥-답안 관련성 판단
+        const hallucinationResult = await this.contextAnswerRelevanceJudge(state)
+        if (hallucinationResult === "finish") {
+          break
+        } else {
+          state = await this.requestRewriterHighHallucination(state)
+        }
+        
+        retryCount++
+      } catch (error) {
+        console.error('AQG 워크플로 오류:', error)
+        retryCount++
+      }
+    }
+
+    if (!state.answer) {
+      throw new Error('문항 생성을 완료할 수 없습니다.')
+    }
+
+    return state.answer
+  }
+}
