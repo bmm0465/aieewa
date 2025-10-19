@@ -31,6 +31,34 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
+      <head>
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @media (hover: hover) {
+              .feature-card:hover {
+                transform: translateY(-8px) !important;
+                box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15), 0 8px 16px -4px rgba(0, 0, 0, 0.1) !important;
+              }
+            }
+            
+            @media (max-width: 768px) {
+              .feature-card {
+                margin: 0.5rem;
+                padding: 1.5rem !important;
+              }
+              
+              h1 {
+                font-size: 2.5rem !important;
+              }
+              
+              .container-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+              }
+            }
+          `
+        }} />
+      </head>
       <body style={{ 
         margin: 0, 
         padding: 0, 
