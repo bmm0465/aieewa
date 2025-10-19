@@ -9,6 +9,8 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production'
   },
+  // Ensure proper static generation
+  trailingSlash: false,
   // 정적 파일 처리
   async headers() {
     return [

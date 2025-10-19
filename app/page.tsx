@@ -1,12 +1,3 @@
-import { Suspense } from 'react'
-import dynamic from 'next/dynamic'
-
-// Client enhancement component
-const ClientEnhancement = dynamic(() => import('@/components/HomeClient'), {
-  ssr: false,
-  loading: () => null
-})
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -41,6 +32,14 @@ export default function Home() {
               <li>• 성취수준별 피드백</li>
               <li>• Self-RAG 품질 검증</li>
             </ul>
+            <div className="mt-4">
+              <a 
+                href="/generate" 
+                className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                문항 생성하기
+              </a>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border">
@@ -60,6 +59,14 @@ export default function Home() {
               <li>• LLM-as-a-Judge 활용</li>
               <li>• AAS 방식으로 상세한 채점 근거 제공</li>
             </ul>
+            <div className="mt-4">
+              <a 
+                href="/evaluate" 
+                className="inline-block bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
+                답안 평가하기
+              </a>
+            </div>
           </div>
         </div>
 
@@ -91,11 +98,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {/* Client-side enhancement */}
-        <Suspense fallback={null}>
-          <ClientEnhancement />
-        </Suspense>
       </div>
     </div>
   )
