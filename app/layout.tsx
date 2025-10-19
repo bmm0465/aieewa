@@ -4,6 +4,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'AIEEWA - 초등 영어 서술형 평가 시스템',
   description: 'LLM 기반 초등 영어 서술형 평가 문항 생성 및 자동 채점 시스템',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export const viewport: Viewport = {
@@ -19,9 +22,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="min-h-screen bg-gray-50 font-sans antialiased">
-        <div id="root">
-          {children}
-        </div>
+        {children}
       </body>
     </html>
   )

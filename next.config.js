@@ -4,12 +4,12 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@langchain/openai', '@langchain/core']
   },
   poweredByHeader: false,
-  reactStrictMode: false, // 하이드레이션 문제 방지
+  reactStrictMode: false,
   swcMinify: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production'
   },
-  // 정적 파일 처리
+  // 정적 파일 처리 및 라우팅 최적화
   async headers() {
     return [
       {
@@ -23,6 +23,9 @@ const nextConfig = {
       },
     ]
   },
+  // 라우팅 문제 방지
+  trailingSlash: false,
+  skipTrailingSlashRedirect: true,
 }
 
 module.exports = nextConfig
