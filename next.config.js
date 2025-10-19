@@ -4,7 +4,7 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@langchain/openai', '@langchain/core']
   },
   poweredByHeader: false,
-  reactStrictMode: false,
+  reactStrictMode: true,
   swcMinify: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production'

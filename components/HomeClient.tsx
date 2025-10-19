@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import dynamic from 'next/dynamic'
@@ -8,7 +8,6 @@ import { BookOpen, FileCheck, Brain } from 'lucide-react'
 
 // 동적 임포트로 컴포넌트 로드
 const QuestionGenerator = dynamic(() => import('@/components/QuestionGenerator'), {
-  ssr: true,
   loading: () => (
     <div className="max-w-6xl mx-auto p-6">
       <div className="text-center py-8 text-gray-600">
@@ -20,7 +19,6 @@ const QuestionGenerator = dynamic(() => import('@/components/QuestionGenerator')
 })
 
 const AnswerEvaluator = dynamic(() => import('@/components/AnswerEvaluator'), {
-  ssr: true,
   loading: () => (
     <div className="max-w-6xl mx-auto p-6">
       <div className="text-center py-8 text-gray-600">
@@ -35,6 +33,59 @@ type TabType = 'home' | 'generate' | 'evaluate'
 
 export default function HomeClient() {
   const [activeTab, setActiveTab] = useState<TabType>('home')
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+    
+    // 기존 카드에 클릭 이벤트 추가
+    const cards = document.querySelectorAll('.cursor-pointer')
+    cards.forEach((card, index) => {
+      card.addEventListener('click', () => {
+        if (index === 0) setActiveTab('generate')
+        else if (index === 1) setActiveTab('evaluate')
+      })
+    })
+
+    // 네비게이션 버튼 추가
+    const addNavigation = () => {
+      const existingNav = document.querySelector('.client-nav')
+      if (!existingNav) {
+        const navHTML = `
+          <div class="client-nav fixed top-4 right-4 z-50 bg-white shadow-lg rounded-lg p-2">
+            <div class="flex gap-2">
+              <button class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700" data-tab="home">
+                홈
+              </button>
+              <button class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200" data-tab="generate">
+                문항 생성
+              </button>
+              <button class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200" data-tab="evaluate">
+                답안 평가
+              </button>
+            </div>
+          </div>
+        `
+        document.body.insertAdjacentHTML('beforeend', navHTML)
+        
+        // 네비게이션 이벤트 리스너 추가
+        document.querySelectorAll('[data-tab]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const tab = (e.target as HTMLElement).dataset.tab as TabType
+            setActiveTab(tab)
+            
+            // 버튼 상태 업데이트
+            document.querySelectorAll('[data-tab]').forEach(b => {
+              b.className = 'px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200'
+            })
+            e.target.className = 'px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700'
+          })
+        })
+      }
+    }
+
+    setTimeout(addNavigation, 100)
+  }, [])
 
   const renderContent = () => {
     switch (activeTab) {
@@ -43,101 +94,16 @@ export default function HomeClient() {
       case 'evaluate':
         return <AnswerEvaluator />
       default:
-        return (
-          <div className="max-w-6xl mx-auto p-6">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold mb-4">
-                AIEEWA
-              </h1>
-              <p className="text-xl text-gray-600 mb-8">
-                LLM 기반 초등 영어 서술형 평가 시스템
-              </p>
-              <p className="text-gray-500 max-w-2xl mx-auto">
-                GPT-4o와 RAG, Self-RAG, LLM-as-a-Judge를 활용하여 초등 영어 서술형 평가 문항을 생성하고, 
-                학생 답안을 자동 채점하며 맞춤형 피드백을 제공합니다.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 mb-12">
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer" 
-                    onClick={() => setActiveTab('generate')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
-                    문항 생성
-                  </CardTitle>
-                  <CardDescription>
-                    AI를 활용하여 초등 영어 서술형 평가 문항과 채점 기준을 자동 생성합니다.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm">
-                    <li>• RAG 기반 예시문 활용</li>
-                    <li>• 분석적/총체적 채점 기준</li>
-                    <li>• 성취수준별 피드백</li>
-                    <li>• Self-RAG 품질 검증</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => setActiveTab('evaluate')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileCheck className="h-6 w-6 text-green-600" />
-                    답안 평가
-                  </CardTitle>
-                  <CardDescription>
-                    학생의 서술형 답안을 AI가 자동으로 채점하고 개별화된 피드백을 제공합니다.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm">
-                    <li>• 분석적 채점 (3개 영역)</li>
-                    <li>• 총체적 평가 (A/B/C)</li>
-                    <li>• 자동 피드백 생성</li>
-                    <li>• LLM-as-a-Judge 활용</li>
-                    <li>• AAS 방식으로 상세한 채점 근거 제공</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-6 w-6 text-purple-600" />
-                  시스템 특징
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div>
-                    <h4 className="font-semibold mb-2">RAG 기반 문항 생성</h4>
-                    <p className="text-sm text-gray-600">
-                      검색 증강 생성으로 교육과정에 부합하는 고품질 문항을 생성합니다.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Self-RAG 품질 관리</h4>
-                    <p className="text-sm text-gray-600">
-                      생성된 문항의 품질을 자동으로 검증하고 개선합니다.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">AAS 자동 채점</h4>
-                    <p className="text-sm text-gray-600">
-                      Few-shot 학습과 Self-RAG를 활용한 정확하고 일관된 자동 채점과 상세한 피드백을 제공합니다.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
+        return null // 서버 렌더링된 콘텐츠 사용
     }
   }
 
+  // 클라이언트에서만 렌더링되고 서버 콘텐츠를 대체하지 않음
+  if (!isMounted || activeTab === 'home') {
+    return null
+  }
+
+  // 다른 탭이 활성화된 경우에만 렌더링
   if (activeTab !== 'home') {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -177,5 +143,5 @@ export default function HomeClient() {
     )
   }
 
-  return renderContent()
+  return null
 }
