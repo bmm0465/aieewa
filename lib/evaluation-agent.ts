@@ -20,7 +20,7 @@ export class EvaluationAgent {
 
   constructor() {
     this.llm = new ChatOpenAI({
-      model: "gpt-4o",
+      modelName: "gpt-4o",
       temperature: 0.1,
       openAIApiKey: process.env.OPENAI_API_KEY,
     })

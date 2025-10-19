@@ -22,13 +22,13 @@ export class AQGAgent {
 
   constructor() {
     this.llmGen = new ChatOpenAI({
-      model: "gpt-4o",
+      modelName: "gpt-4o",
       temperature: 0.3,
       openAIApiKey: process.env.OPENAI_API_KEY,
     })
 
     this.llmJudge = new ChatOpenAI({
-      model: "gpt-4o", 
+      modelName: "gpt-4o", 
       temperature: 0,
       openAIApiKey: process.env.OPENAI_API_KEY,
     })

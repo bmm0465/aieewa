@@ -21,7 +21,7 @@ export class AASAgent {
 
   constructor() {
     this.llm = new ChatOpenAI({
-      model: "gpt-4o",
+      modelName: "gpt-4o",
       temperature: 0,
       openAIApiKey: process.env.OPENAI_API_KEY,
     })
