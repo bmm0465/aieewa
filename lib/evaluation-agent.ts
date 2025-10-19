@@ -1,6 +1,6 @@
-import { ChatOpenAI } from 'langchain/openai'
-import { ChatPromptTemplate } from 'langchain/prompts'
-import { StringOutputParser } from 'langchain/output_parsers'
+import { ChatOpenAI } from '@langchain/openai'
+import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { StringOutputParser } from '@langchain/core/output_parsers'
 import { z } from 'zod'
 
 // 평가 결과 스키마

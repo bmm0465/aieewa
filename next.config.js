@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['langchain', 'langchain-openai', 'langgraph']
+    serverComponentsExternalPackages: ['@langchain/openai', '@langchain/core']
   },
   env: {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,

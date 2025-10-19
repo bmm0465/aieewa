@@ -1,9 +1,7 @@
-import { ChatOpenAI } from 'langchain/openai'
-import { ChatPromptTemplate, FewShotPromptTemplate, PromptTemplate } from 'langchain/prompts'
-import { StringOutputParser } from 'langchain/output_parsers'
-import { HuggingFaceTransformersEmbeddings } from 'langchain/embeddings/hf_transformers'
-import { FAISS } from 'langchain/vectorstores/faiss'
-import { Document } from 'langchain/document'
+import { ChatOpenAI } from '@langchain/openai'
+import { ChatPromptTemplate, FewShotPromptTemplate, PromptTemplate } from '@langchain/core/prompts'
+import { StringOutputParser } from '@langchain/core/output_parsers'
+import { Document } from '@langchain/core/documents'
 import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from './types/aqg'
 
 // 환경 변수 설정
@@ -38,23 +36,11 @@ export class AQGAgent {
     this.parser = AQGSchema
   }
 
-  // RAG 검색 설정 (실제 구현에서는 벡터 스토어를 로드해야 함)
+  // 간단한 검색 설정 (배포 환경에서 벡터 스토어 제거)
   async initializeRetrieval() {
-    try {
-      // 실제 환경에서는 FAISS 벡터 스토어를 로드
-      // embedding_model_aqg = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
-      // vector_store_aqg = FAISS.load_local("/path/to/vector_store", embedding_model_aqg)
-      // this.retrieval = vector_store_aqg.as_retriever(search_kwargs={"k": 10})
-      
-      // 임시로 빈 검색기 설정
-      this.retrieval = {
-        invoke: async () => []
-      }
-    } catch (error) {
-      console.error('RAG 초기화 실패:', error)
-      this.retrieval = {
-        invoke: async () => []
-      }
+    // 배포 환경에서는 검색 없이 진행
+    this.retrieval = {
+      invoke: async () => []
     }
   }
 
