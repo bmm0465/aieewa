@@ -54,18 +54,48 @@ export default function QuestionGenerator() {
       console.log('API 응답 데이터:', data)
 
       if (!response.ok) {
-        throw new Error(data.error || '문항 생성에 실패했습니다.')
+        // 더 구체적인 에러 메시지 제공
+        let errorMessage = data.error || '문항 생성에 실패했습니다.'
+        
+        if (response.status === 500) {
+          if (data.error?.includes('API 키')) {
+            errorMessage = 'AI 서비스 설정에 문제가 있습니다. 관리자에게 문의해주세요.'
+          } else if (data.error?.includes('네트워크')) {
+            errorMessage = '네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해주세요.'
+          } else if (data.error?.includes('시간')) {
+            errorMessage = '요청 시간이 초과되었습니다. 다시 시도해주세요.'
+          }
+        }
+        
+        throw new Error(errorMessage)
       }
 
       // API 응답 구조에 맞게 수정
       if (data.success && data.question) {
         setGeneratedQuestion(data.question)
+        if (data.warning) {
+          console.warn('데이터베이스 저장 경고:', data.warning)
+        }
+      } else if (data.success && !data.question) {
+        throw new Error('문항이 생성되었지만 데이터를 가져올 수 없습니다.')
       } else {
         throw new Error('응답 데이터 형식이 올바르지 않습니다.')
       }
     } catch (error) {
       console.error('문항 생성 오류:', error)
-      setError(error instanceof Error ? error.message : '문항 생성에 실패했습니다.')
+      
+      let errorMessage = '문항 생성에 실패했습니다.'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // 네트워크 오류 처리
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = '서버와의 연결에 실패했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.'
+        }
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsGenerating(false)
     }

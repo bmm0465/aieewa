@@ -1,10 +1,10 @@
 {
   "/_not-found": "app/_not-found.js",
+  "/evaluate/page": "app/evaluate/page.js",
   "/page": "app/page.js",
   "/generate/page": "app/generate/page.js",
-  "/evaluate/page": "app/evaluate/page.js",
+  "/api/evaluate-answer-aas/route": "app/api/evaluate-answer-aas/route.js",
   "/api/questions/route": "app/api/questions/route.js",
   "/api/evaluate-answer/route": "app/api/evaluate-answer/route.js",
-  "/api/generate-question/route": "app/api/generate-question/route.js",
-  "/api/evaluate-answer-aas/route": "app/api/evaluate-answer-aas/route.js"
+  "/api/generate-question/route": "app/api/generate-question/route.js"
 }

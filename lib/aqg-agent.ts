@@ -319,46 +319,85 @@ You can play Please come 1
 
   // 메인 워크플로 실행
   async run(request: string): Promise<AQG> {
-    await this.initializeRetrieval()
-    
-    let state: GraphStateAQG = { request, context: "" }
-    let retryCount = 0
-    const maxRetries = 3
+    try {
+      console.log('AQG Agent run 시작:', request)
+      
+      await this.initializeRetrieval()
+      console.log('Retrieval 초기화 완료')
+      
+      let state: GraphStateAQG = { request, context: "" }
+      let retryCount = 0
+      const maxRetries = 2 // 재시도 횟수 줄임
 
-    while (retryCount < maxRetries) {
-      try {
-        // 1. 검색
-        state = await this.retrieve(state)
-        
-        // 2. 요청-문맥 관련성 판단
-        const relevance = await this.requestContextRelevanceJudge(state)
-        if (relevance === "not relevant") {
-          state = await this.requestRewriterLowContext(state)
-          continue
+      while (retryCount < maxRetries) {
+        try {
+          console.log(`AQG 워크플로 시도 ${retryCount + 1}/${maxRetries}`)
+          
+          // 1. 검색
+          state = await this.retrieve(state)
+          console.log('검색 단계 완료')
+          
+          // 2. 요청-문맥 관련성 판단 (간소화)
+          try {
+            const relevance = await this.requestContextRelevanceJudge(state)
+            console.log('관련성 판단:', relevance)
+            if (relevance === "not relevant") {
+              state = await this.requestRewriterLowContext(state)
+              continue
+            }
+          } catch (judgeError) {
+            console.warn('관련성 판단 오류, 계속 진행:', judgeError)
+          }
+          
+          // 3. 답안 생성
+          state = await this.generate(state)
+          console.log('문항 생성 완료:', !!state.answer)
+          
+          if (state.answer) {
+            // 4. 문맥-답안 관련성 판단 (간소화)
+            try {
+              const hallucinationResult = await this.contextAnswerRelevanceJudge(state)
+              console.log('환각 판단:', hallucinationResult)
+              if (hallucinationResult === "finish") {
+                break
+              }
+            } catch (judgeError) {
+              console.warn('환각 판단 오류, 생성된 결과 사용:', judgeError)
+              break // 생성된 결과가 있으면 사용
+            }
+          }
+          
+          retryCount++
+        } catch (stepError) {
+          console.error(`AQG 워크플로 단계 ${retryCount + 1} 오류:`, stepError)
+          retryCount++
+          
+          // 마지막 시도에서도 실패하면 간단한 생성 시도
+          if (retryCount >= maxRetries) {
+            try {
+              console.log('간단한 문항 생성 시도')
+              state = await this.generate(state)
+              if (state.answer) {
+                console.log('간단한 생성 성공')
+                break
+              }
+            } catch (simpleError) {
+              console.error('간단한 생성도 실패:', simpleError)
+            }
+          }
         }
-        
-        // 3. 답안 생성
-        state = await this.generate(state)
-        
-        // 4. 문맥-답안 관련성 판단
-        const hallucinationResult = await this.contextAnswerRelevanceJudge(state)
-        if (hallucinationResult === "finish") {
-          break
-        } else {
-          state = await this.requestRewriterHighHallucination(state)
-        }
-        
-        retryCount++
-      } catch (error) {
-        console.error('AQG 워크플로 오류:', error)
-        retryCount++
       }
-    }
 
-    if (!state.answer) {
-      throw new Error('문항 생성을 완료할 수 없습니다.')
-    }
+      console.log('AQG 워크플로 완료, 결과:', !!state.answer)
 
-    return state.answer
+      if (!state.answer) {
+        throw new Error('문항 생성을 완료할 수 없습니다. 요청을 다시 확인해주세요.')
+      }
+
+      return state.answer
+    } catch (error) {
+      console.error('AQG Agent 전체 실행 오류:', error)
+      throw new Error(`문항 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    }
   }
 }
