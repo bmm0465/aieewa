@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import dynamic from 'next/dynamic'
-import { BookOpen, FileCheck, Brain } from 'lucide-react'
 
 // 동적 임포트로 컴포넌트 로드
 const QuestionGenerator = dynamic(() => import('@/components/QuestionGenerator'), {
@@ -38,53 +36,75 @@ export default function HomeClient() {
   useEffect(() => {
     setIsMounted(true)
     
-    // 기존 카드에 클릭 이벤트 추가
+    // 기존 카드에 클릭 이벤트 추가 (타입 안전하게)
     const cards = document.querySelectorAll('.cursor-pointer')
     cards.forEach((card, index) => {
-      card.addEventListener('click', () => {
+      const handleClick = () => {
         if (index === 0) setActiveTab('generate')
         else if (index === 1) setActiveTab('evaluate')
-      })
+      }
+      card.addEventListener('click', handleClick)
+      
+      // 클린업을 위해 이벤트 리스너 저장
+      ;(card as any)._clickHandler = handleClick
     })
 
-    // 네비게이션 버튼 추가
+    // 네비게이션 추가
     const addNavigation = () => {
       const existingNav = document.querySelector('.client-nav')
       if (!existingNav) {
-        const navHTML = `
-          <div class="client-nav fixed top-4 right-4 z-50 bg-white shadow-lg rounded-lg p-2">
-            <div class="flex gap-2">
-              <button class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700" data-tab="home">
-                홈
-              </button>
-              <button class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200" data-tab="generate">
-                문항 생성
-              </button>
-              <button class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200" data-tab="evaluate">
-                답안 평가
-              </button>
-            </div>
+        const navElement = document.createElement('div')
+        navElement.className = 'client-nav fixed top-4 right-4 z-50 bg-white shadow-lg rounded-lg p-2'
+        navElement.innerHTML = `
+          <div class="flex gap-2">
+            <button class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700" data-tab="home">
+              홈
+            </button>
+            <button class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200" data-tab="generate">
+              문항 생성
+            </button>
+            <button class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200" data-tab="evaluate">
+              답안 평가
+            </button>
           </div>
         `
-        document.body.insertAdjacentHTML('beforeend', navHTML)
+        document.body.appendChild(navElement)
         
-        // 네비게이션 이벤트 리스너 추가
-        document.querySelectorAll('[data-tab]').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const tab = (e.target as HTMLElement).dataset.tab as TabType
+        // 이벤트 위임 사용
+        navElement.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement
+          if (target && target.dataset.tab) {
+            const tab = target.dataset.tab as TabType
             setActiveTab(tab)
             
             // 버튼 상태 업데이트
-            document.querySelectorAll('[data-tab]').forEach(b => {
-              b.className = 'px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200'
+            const buttons = navElement.querySelectorAll('[data-tab]')
+            buttons.forEach(btn => {
+              if (btn instanceof HTMLElement) {
+                btn.className = 'px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200'
+              }
             })
-            e.target.className = 'px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700'
-          })
+            target.className = 'px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700'
+          }
         })
       }
     }
 
-    setTimeout(addNavigation, 100)
+    const timeoutId = setTimeout(addNavigation, 100)
+    
+    // 클린업
+    return () => {
+      clearTimeout(timeoutId)
+      cards.forEach(card => {
+        if ((card as any)._clickHandler) {
+          card.removeEventListener('click', (card as any)._clickHandler)
+        }
+      })
+      const nav = document.querySelector('.client-nav')
+      if (nav) {
+        nav.remove()
+      }
+    }
   }, [])
 
   const renderContent = () => {
@@ -94,54 +114,50 @@ export default function HomeClient() {
       case 'evaluate':
         return <AnswerEvaluator />
       default:
-        return null // 서버 렌더링된 콘텐츠 사용
+        return null
     }
   }
 
-  // 클라이언트에서만 렌더링되고 서버 콘텐츠를 대체하지 않음
+  // 마운트되지 않았거나 홈 탭인 경우 null 반환
   if (!isMounted || activeTab === 'home') {
     return null
   }
 
   // 다른 탭이 활성화된 경우에만 렌더링
-  if (activeTab !== 'home') {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white border-b shadow-sm">
-          <div className="max-w-6xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => setActiveTab('home')}
+                className="text-lg font-bold text-blue-600 hover:text-blue-700"
+              >
+                AIEEWA
+              </Button>
+              <div className="flex gap-2">
                 <Button 
-                  variant="ghost" 
-                  onClick={() => setActiveTab('home')}
-                  className="text-lg font-bold text-blue-600 hover:text-blue-700"
+                  variant={activeTab === 'generate' ? 'default' : 'ghost'}
+                  onClick={() => setActiveTab('generate')}
                 >
-                  AIEEWA
+                  문항 생성
                 </Button>
-                <div className="flex gap-2">
-                  <Button 
-                    variant={activeTab === 'generate' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('generate')}
-                  >
-                    문항 생성
-                  </Button>
-                  <Button 
-                    variant={activeTab === 'evaluate' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('evaluate')}
-                  >
-                    답안 평가
-                  </Button>
-                </div>
+                <Button 
+                  variant={activeTab === 'evaluate' ? 'default' : 'ghost'}
+                  onClick={() => setActiveTab('evaluate')}
+                >
+                  답안 평가
+                </Button>
               </div>
             </div>
           </div>
-        </nav>
-        <div className="py-6">
-          {renderContent()}
         </div>
+      </nav>
+      <div className="py-6">
+        {renderContent()}
       </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }
