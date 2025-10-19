@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AASAgent } from '@/lib/aas-agent'
 import { supabase } from '@/lib/supabase'
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function POST(request: NextRequest) {
   try {
     const { questionId, studentName, answer } = await request.json()
