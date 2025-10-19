@@ -34,6 +34,11 @@ export default function RootLayout({
       <head>
         <style dangerouslySetInnerHTML={{
           __html: `
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            
             @media (hover: hover) {
               .feature-card:hover {
                 transform: translateY(-8px) !important;

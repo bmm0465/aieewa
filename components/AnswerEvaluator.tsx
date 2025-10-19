@@ -1,11 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Loader2, FileCheck, User, MessageSquare } from 'lucide-react'
 
 interface Question {
   id: string
@@ -95,6 +90,8 @@ export default function AnswerEvaluator() {
     setError('')
 
     try {
+      console.log('답안 평가 요청 시작:', { selectedQuestionId, studentName, answer })
+      
       const endpoint = useAAS ? '/api/evaluate-answer-aas' : '/api/evaluate-answer'
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -108,13 +105,20 @@ export default function AnswerEvaluator() {
         }),
       })
 
+      console.log('API 응답 상태:', response.status)
       const data = await response.json()
+      console.log('API 응답 데이터:', data)
 
       if (!response.ok) {
         throw new Error(data.error || '답안 평가에 실패했습니다.')
       }
 
-      setEvaluationResult(data.evaluation)
+      // API 응답 구조에 맞게 수정
+      if (data.evaluation) {
+        setEvaluationResult(data.evaluation)
+      } else {
+        throw new Error('응답 데이터 형식이 올바르지 않습니다.')
+      }
     } catch (error) {
       console.error('답안 평가 오류:', error)
       setError(error instanceof Error ? error.message : '답안 평가에 실패했습니다.')
@@ -125,255 +129,680 @@ export default function AnswerEvaluator() {
 
   const getScoreColor = (score: number, maxScore: number = 2) => {
     const percentage = (score / maxScore) * 100
-    if (percentage >= 80) return 'text-green-600'
-    if (percentage >= 60) return 'text-yellow-600'
-    return 'text-red-600'
+    if (percentage >= 80) return { color: '#059669', bg: '#f0fdf4' }
+    if (percentage >= 60) return { color: '#d97706', bg: '#fefce8' }
+    return { color: '#dc2626', bg: '#fef2f2' }
   }
 
   const getHolisticScoreColor = (level: string) => {
     switch (level) {
-      case 'A': return 'text-green-600 bg-green-50'
-      case 'B': return 'text-yellow-600 bg-yellow-50'
-      case 'C': return 'text-red-600 bg-red-50'
-      default: return 'text-gray-600 bg-gray-50'
+      case 'A': return { color: '#059669', bg: '#f0fdf4' }
+      case 'B': return { color: '#d97706', bg: '#fefce8' }
+      case 'C': return { color: '#dc2626', bg: '#fef2f2' }
+      default: return { color: '#6b7280', bg: '#f9fafb' }
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileCheck className="h-5 w-5" />
+    <div style={{ 
+      maxWidth: '1200px', 
+      margin: '0 auto', 
+      padding: '2rem',
+      backgroundColor: '#f8fafc',
+      minHeight: '100vh'
+    }}>
+      {/* 헤더 */}
+      <div style={{ marginBottom: '2rem' }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.75rem',
+          marginBottom: '1rem'
+        }}>
+          <div style={{ 
+            fontSize: '1.5rem',
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}>✅</div>
+          <h1 style={{ 
+            fontSize: '1.875rem', 
+            fontWeight: '700', 
+            color: '#1e293b',
+            margin: 0
+          }}>
             학생 답안 평가
-          </CardTitle>
-          <CardDescription>
-            AI를 활용하여 학생의 서술형 답안을 자동 평가하고 피드백을 제공합니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label htmlFor="question" className="block text-sm font-medium mb-2">
-              평가 문항 선택
-            </label>
-            <select
-              id="question"
-              value={selectedQuestionId}
-              onChange={(e) => setSelectedQuestionId(e.target.value)}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">문항을 선택해주세요</option>
-              {questions.map((question) => (
-                <option key={question.id} value={question.id}>
-                  {question.unit_grade} - {question.question.substring(0, 50)}...
-                </option>
-              ))}
-            </select>
-          </div>
+          </h1>
+        </div>
+        <p style={{ 
+          color: '#64748b',
+          fontSize: '1.1rem',
+          lineHeight: '1.6'
+        }}>
+          AI를 활용하여 학생의 서술형 답안을 자동 평가하고 피드백을 제공합니다.
+        </p>
+      </div>
 
-          {selectedQuestion && (
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h4 className="font-semibold mb-2">선택된 문항</h4>
-              <p className="text-sm text-gray-700">{selectedQuestion.question}</p>
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="studentName" className="block text-sm font-medium mb-2">
-              학생 이름
-            </label>
-            <Input
-              id="studentName"
-              placeholder="학생 이름을 입력하세요"
-              value={studentName}
-              onChange={(e) => setStudentName(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="answer" className="block text-sm font-medium mb-2">
-              학생 답안
-            </label>
-            <Textarea
-              id="answer"
-              placeholder="학생의 답안을 입력하세요"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              rows={8}
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="useAAS"
-              checked={useAAS}
-              onChange={(e) => setUseAAS(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="useAAS" className="text-sm font-medium">
-              AAS (Automated Answer Scoring) 사용 - 더 상세한 채점 근거와 피드백 제공
-            </label>
-          </div>
-
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-
-          <Button 
-            onClick={handleEvaluate} 
-            disabled={isEvaluating || !selectedQuestionId || !studentName.trim() || !answer.trim()}
-            className="w-full"
+      {/* 입력 폼 */}
+      <div style={{ 
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '1rem',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        border: '1px solid #e2e8f0',
+        marginBottom: '2rem'
+      }}>
+        {/* 문항 선택 */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '0.75rem'
+          }}>
+            평가 문항 선택
+          </label>
+          <select
+            value={selectedQuestionId}
+            onChange={(e) => setSelectedQuestionId(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.875rem',
+              border: '2px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              outline: 'none',
+              transition: 'border-color 0.2s ease',
+              boxSizing: 'border-box',
+              backgroundColor: 'white'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#3b82f6'
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e5e7eb'
+            }}
           >
-            {isEvaluating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                평가 중...
-              </>
-            ) : (
-              <>
-                <FileCheck className="mr-2 h-4 w-4" />
-                답안 평가하기
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+            <option value="">문항을 선택해주세요</option>
+            {questions.map((question) => (
+              <option key={question.id} value={question.id}>
+                {question.unit_grade} - {question.question.substring(0, 50)}...
+              </option>
+            ))}
+          </select>
+        </div>
 
+        {selectedQuestion && (
+          <div style={{
+            backgroundColor: '#f8fafc',
+            padding: '1rem',
+            borderRadius: '0.5rem',
+            border: '1px solid #e2e8f0',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 style={{ 
+              fontSize: '1rem',
+              fontWeight: '600',
+              color: '#374151',
+              marginBottom: '0.5rem'
+            }}>
+              선택된 문항
+            </h4>
+            <p style={{ 
+              fontSize: '0.875rem',
+              color: '#64748b',
+              lineHeight: '1.5'
+            }}>
+              {selectedQuestion.question}
+            </p>
+          </div>
+        )}
+
+        {/* 학생 이름 */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '0.75rem'
+          }}>
+            학생 이름
+          </label>
+          <input
+            type="text"
+            placeholder="학생 이름을 입력하세요"
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.875rem',
+              border: '2px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              outline: 'none',
+              transition: 'border-color 0.2s ease',
+              boxSizing: 'border-box'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#3b82f6'
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e5e7eb'
+            }}
+          />
+        </div>
+
+        {/* 학생 답안 */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '0.75rem'
+          }}>
+            학생 답안
+          </label>
+          <textarea
+            placeholder="학생의 답안을 입력하세요"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            rows={8}
+            style={{
+              width: '100%',
+              padding: '0.875rem',
+              border: '2px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              resize: 'vertical',
+              outline: 'none',
+              transition: 'border-color 0.2s ease',
+              boxSizing: 'border-box'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#3b82f6'
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e5e7eb'
+            }}
+          />
+        </div>
+
+        {/* AAS 옵션 */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.75rem',
+          marginBottom: '1.5rem',
+          padding: '1rem',
+          backgroundColor: '#f8fafc',
+          borderRadius: '0.5rem',
+          border: '1px solid #e2e8f0'
+        }}>
+          <input
+            type="checkbox"
+            id="useAAS"
+            checked={useAAS}
+            onChange={(e) => setUseAAS(e.target.checked)}
+            style={{
+              width: '1rem',
+              height: '1rem',
+              accentColor: '#3b82f6'
+            }}
+          />
+          <label htmlFor="useAAS" style={{
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            color: '#374151',
+            cursor: 'pointer'
+          }}>
+            AAS (Automated Answer Scoring) 사용 - 더 상세한 채점 근거와 피드백 제공
+          </label>
+        </div>
+
+        {error && (
+          <div style={{
+            color: '#dc2626',
+            fontSize: '0.875rem',
+            backgroundColor: '#fef2f2',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            border: '1px solid #fecaca',
+            marginBottom: '1rem'
+          }}>
+            {error}
+          </div>
+        )}
+
+        {/* 평가 버튼 */}
+        <button
+          onClick={handleEvaluate}
+          disabled={isEvaluating || !selectedQuestionId || !studentName.trim() || !answer.trim()}
+          style={{
+            width: '100%',
+            padding: '0.875rem 1.5rem',
+            border: 'none',
+            borderRadius: '0.5rem',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: isEvaluating || !selectedQuestionId || !studentName.trim() || !answer.trim() ? 'not-allowed' : 'pointer',
+            background: isEvaluating || !selectedQuestionId || !studentName.trim() || !answer.trim() 
+              ? '#9ca3af' 
+              : 'linear-gradient(135deg, #10b981, #059669)',
+            color: 'white',
+            boxShadow: isEvaluating || !selectedQuestionId || !studentName.trim() || !answer.trim() 
+              ? 'none' 
+              : '0 4px 12px rgba(16, 185, 129, 0.3)',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          {isEvaluating ? (
+            <>
+              <div style={{
+                width: '1rem',
+                height: '1rem',
+                border: '2px solid transparent',
+                borderTop: '2px solid currentColor',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              평가 중...
+            </>
+          ) : (
+            '답안 평가하기'
+          )}
+        </button>
+      </div>
+
+      {/* 선택된 문항 상세 정보 */}
       {selectedQuestion && (
-        <Card>
-          <CardHeader>
-            <CardTitle>문항 상세 정보</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div style={{ 
+          backgroundColor: 'white',
+          padding: '2rem',
+          borderRadius: '1rem',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e2e8f0',
+          marginBottom: '2rem'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            marginBottom: '1.5rem',
+            paddingBottom: '1rem',
+            borderBottom: '2px solid #e5e7eb'
+          }}>
+            <div style={{ fontSize: '1.5rem' }}>📋</div>
+            <h2 style={{ 
+              fontSize: '1.5rem', 
+              fontWeight: '700', 
+              color: '#1e293b',
+              margin: 0
+            }}>
+              문항 상세 정보
+            </h2>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <h4 style={{ 
+              fontSize: '1rem',
+              fontWeight: '600',
+              color: '#374151',
+              marginBottom: '0.5rem'
+            }}>
+              단원/학년
+            </h4>
+            <p style={{ color: '#64748b' }}>{selectedQuestion.unit_grade}</p>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <h4 style={{ 
+              fontSize: '1rem',
+              fontWeight: '600',
+              color: '#374151',
+              marginBottom: '0.5rem'
+            }}>
+              예시문
+            </h4>
+            <div style={{
+              backgroundColor: '#eff6ff',
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #bfdbfe',
+              whiteSpace: 'pre-wrap',
+              lineHeight: '1.6'
+            }}>
+              {selectedQuestion.example_text}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <h4 style={{ 
+              fontSize: '1rem',
+              fontWeight: '600',
+              color: '#374151',
+              marginBottom: '0.5rem'
+            }}>
+              조건
+            </h4>
+            <div style={{
+              backgroundColor: '#fefce8',
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #fed7aa',
+              whiteSpace: 'pre-wrap',
+              lineHeight: '1.6'
+            }}>
+              {selectedQuestion.conditions}
+            </div>
+          </div>
+
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '1rem'
+          }}>
             <div>
-              <h4 className="font-semibold mb-2">단원/학년</h4>
-              <p>{selectedQuestion.unit_grade}</p>
+              <h4 style={{ 
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                모범 답안 1
+              </h4>
+              <div style={{
+                backgroundColor: '#f0fdf4',
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #bbf7d0',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.6'
+              }}>
+                {selectedQuestion.model_answer_1}
+              </div>
             </div>
-
             <div>
-              <h4 className="font-semibold mb-2">예시문</h4>
-              <div className="bg-blue-50 p-4 rounded-md whitespace-pre-wrap">
-                {selectedQuestion.example_text}
+              <h4 style={{ 
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                모범 답안 2
+              </h4>
+              <div style={{
+                backgroundColor: '#f0fdf4',
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #bbf7d0',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.6'
+              }}>
+                {selectedQuestion.model_answer_2}
               </div>
             </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">조건</h4>
-              <div className="bg-yellow-50 p-4 rounded-md whitespace-pre-wrap">
-                {selectedQuestion.conditions}
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-semibold mb-2">모범 답안 1</h4>
-                <div className="bg-green-50 p-4 rounded-md whitespace-pre-wrap">
-                  {selectedQuestion.model_answer_1}
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">모범 답안 2</h4>
-                <div className="bg-green-50 p-4 rounded-md whitespace-pre-wrap">
-                  {selectedQuestion.model_answer_2}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {evaluationResult && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                평가 결과: {studentName}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-semibold mb-4">분석적 채점 결과</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">과제수행 (내용의 적절성)</span>
-                        <span className={`font-bold ${getScoreColor(evaluationResult.analytical_score_1)}`}>
-                          {evaluationResult.analytical_score_1}/2
-                        </span>
-                      </div>
-                      {evaluationResult.analytical_reasoning_1 && (
-                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                          근거: {evaluationResult.analytical_reasoning_1}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">구성 (응집성 및 일관성)</span>
-                        <span className={`font-bold ${getScoreColor(evaluationResult.analytical_score_2)}`}>
-                          {evaluationResult.analytical_score_2}/2
-                        </span>
-                      </div>
-                      {evaluationResult.analytical_reasoning_2 && (
-                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                          근거: {evaluationResult.analytical_reasoning_2}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">언어사용 (어휘 및 어법)</span>
-                        <span className={`font-bold ${getScoreColor(evaluationResult.analytical_score_3)}`}>
-                          {evaluationResult.analytical_score_3}/2
-                        </span>
-                      </div>
-                      {evaluationResult.analytical_reasoning_3 && (
-                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                          근거: {evaluationResult.analytical_reasoning_3}
-                        </div>
-                      )}
-                    </div>
-                    <div className="border-t pt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold">총점</span>
-                        <span className={`font-bold text-lg ${getScoreColor(evaluationResult.total_score, 6)}`}>
-                          {evaluationResult.total_score}/6
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-4">총체적 평가</h4>
-                  <div className={`p-4 rounded-md text-center font-bold text-lg ${getHolisticScoreColor(evaluationResult.holistic_score)}`}>
-                    {evaluationResult.holistic_score} 수준
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                AI 피드백
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-blue-50 p-6 rounded-md whitespace-pre-wrap">
-                {evaluationResult.ai_feedback}
-              </div>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       )}
+
+      {/* 평가 결과 */}
+      {evaluationResult && (
+        <div>
+          {/* 평가 결과 요약 */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1.5rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '1.5rem' }}>👤</div>
+              <h2 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: '700', 
+                color: '#1e293b',
+                margin: 0
+              }}>
+                평가 결과: {studentName}
+              </h2>
+            </div>
+
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+              gap: '2rem'
+            }}>
+              {/* 분석적 채점 결과 */}
+              <div>
+                <h4 style={{ 
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '1rem'
+                }}>
+                  분석적 채점 결과
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '0.5rem'
+                    }}>
+                      <span style={{ 
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        color: '#374151'
+                      }}>
+                        과제수행 (내용의 적절성)
+                      </span>
+                      <span style={{ 
+                        fontWeight: '700',
+                        color: getScoreColor(evaluationResult.analytical_score_1).color
+                      }}>
+                        {evaluationResult.analytical_score_1}/2
+                      </span>
+                    </div>
+                    {evaluationResult.analytical_reasoning_1 && (
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        backgroundColor: '#f9fafb',
+                        padding: '0.5rem',
+                        borderRadius: '0.25rem',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        근거: {evaluationResult.analytical_reasoning_1}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '0.5rem'
+                    }}>
+                      <span style={{ 
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        color: '#374151'
+                      }}>
+                        구성 (응집성 및 일관성)
+                      </span>
+                      <span style={{ 
+                        fontWeight: '700',
+                        color: getScoreColor(evaluationResult.analytical_score_2).color
+                      }}>
+                        {evaluationResult.analytical_score_2}/2
+                      </span>
+                    </div>
+                    {evaluationResult.analytical_reasoning_2 && (
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        backgroundColor: '#f9fafb',
+                        padding: '0.5rem',
+                        borderRadius: '0.25rem',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        근거: {evaluationResult.analytical_reasoning_2}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '0.5rem'
+                    }}>
+                      <span style={{ 
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        color: '#374151'
+                      }}>
+                        언어사용 (어휘 및 어법)
+                      </span>
+                      <span style={{ 
+                        fontWeight: '700',
+                        color: getScoreColor(evaluationResult.analytical_score_3).color
+                      }}>
+                        {evaluationResult.analytical_score_3}/2
+                      </span>
+                    </div>
+                    {evaluationResult.analytical_reasoning_3 && (
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        backgroundColor: '#f9fafb',
+                        padding: '0.5rem',
+                        borderRadius: '0.25rem',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        근거: {evaluationResult.analytical_reasoning_3}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ 
+                    borderTop: '2px solid #e5e7eb',
+                    paddingTop: '1rem',
+                    marginTop: '0.5rem'
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ 
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        총점
+                      </span>
+                      <span style={{ 
+                        fontWeight: '700',
+                        fontSize: '1.25rem',
+                        color: getScoreColor(evaluationResult.total_score, 6).color
+                      }}>
+                        {evaluationResult.total_score}/6
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 총체적 평가 */}
+              <div>
+                <h4 style={{ 
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '1rem'
+                }}>
+                  총체적 평가
+                </h4>
+                <div style={{
+                  padding: '2rem',
+                  borderRadius: '0.5rem',
+                  textAlign: 'center',
+                  fontWeight: '700',
+                  fontSize: '1.5rem',
+                  color: getHolisticScoreColor(evaluationResult.holistic_score).color,
+                  backgroundColor: getHolisticScoreColor(evaluationResult.holistic_score).bg,
+                  border: `2px solid ${getHolisticScoreColor(evaluationResult.holistic_score).color}20`
+                }}>
+                  {evaluationResult.holistic_score} 수준
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AI 피드백 */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1.5rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '1.5rem' }}>💬</div>
+              <h2 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: '700', 
+                color: '#1e293b',
+                margin: 0
+              }}>
+                AI 피드백
+              </h2>
+            </div>
+            <div style={{
+              backgroundColor: '#eff6ff',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #bfdbfe',
+              whiteSpace: 'pre-wrap',
+              lineHeight: '1.6'
+            }}>
+              {evaluationResult.ai_feedback}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

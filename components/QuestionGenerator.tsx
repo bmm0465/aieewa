@@ -1,11 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Loader2, Plus } from 'lucide-react'
 
 interface GeneratedQuestion {
   단원_및_학년: string
@@ -44,6 +39,8 @@ export default function QuestionGenerator() {
     setError('')
 
     try {
+      console.log('문항 생성 요청 시작:', request)
+      
       const response = await fetch('/api/generate-question', {
         method: 'POST',
         headers: {
@@ -52,13 +49,20 @@ export default function QuestionGenerator() {
         body: JSON.stringify({ request }),
       })
 
+      console.log('API 응답 상태:', response.status)
       const data = await response.json()
+      console.log('API 응답 데이터:', data)
 
       if (!response.ok) {
         throw new Error(data.error || '문항 생성에 실패했습니다.')
       }
 
-      setGeneratedQuestion(data.question)
+      // API 응답 구조에 맞게 수정
+      if (data.success && data.question) {
+        setGeneratedQuestion(data.question)
+      } else {
+        throw new Error('응답 데이터 형식이 올바르지 않습니다.')
+      }
     } catch (error) {
       console.error('문항 생성 오류:', error)
       setError(error instanceof Error ? error.message : '문항 생성에 실패했습니다.')
@@ -68,211 +72,710 @@ export default function QuestionGenerator() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
+    <div style={{ 
+      maxWidth: '1200px', 
+      margin: '0 auto', 
+      padding: '2rem',
+      backgroundColor: '#f8fafc',
+      minHeight: '100vh'
+    }}>
+      {/* 헤더 */}
+      <div style={{ marginBottom: '2rem' }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.75rem',
+          marginBottom: '1rem'
+        }}>
+          <div style={{ 
+            fontSize: '1.5rem',
+            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}>📝</div>
+          <h1 style={{ 
+            fontSize: '1.875rem', 
+            fontWeight: '700', 
+            color: '#1e293b',
+            margin: 0
+          }}>
             영어 서술형 평가 문항 생성
-          </CardTitle>
-          <CardDescription>
-            AI를 활용하여 초등 영어 서술형 평가 문항과 채점 기준을 생성합니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label htmlFor="request" className="block text-sm font-medium mb-2">
-              문항 생성 요청
-            </label>
-            <Textarea
-              id="request"
-              placeholder="예: 5학년 9단원 My Favorite Subject Is Science 영어 서술형 평가 문항과 채점 기준을 생성해줘."
-              value={request}
-              onChange={(e) => setRequest(e.target.value)}
-              rows={3}
-            />
+          </h1>
+        </div>
+        <p style={{ 
+          color: '#64748b',
+          fontSize: '1.1rem',
+          lineHeight: '1.6'
+        }}>
+          AI를 활용하여 초등 영어 서술형 평가 문항과 채점 기준을 생성합니다.
+        </p>
+      </div>
+
+      {/* 입력 폼 */}
+      <div style={{ 
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '1rem',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        border: '1px solid #e2e8f0',
+        marginBottom: '2rem'
+      }}>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '0.75rem'
+          }}>
+            문항 생성 요청
+          </label>
+          <textarea
+            placeholder="예: 5학년 9단원 My Favorite Subject Is Science 영어 서술형 평가 문항과 채점 기준을 생성해줘."
+            value={request}
+            onChange={(e) => setRequest(e.target.value)}
+            rows={4}
+            style={{
+              width: '100%',
+              padding: '0.875rem',
+              border: '2px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              resize: 'vertical',
+              outline: 'none',
+              transition: 'border-color 0.2s ease',
+              boxSizing: 'border-box'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#3b82f6'
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e5e7eb'
+            }}
+          />
+        </div>
+        
+        {error && (
+          <div style={{
+            color: '#dc2626',
+            fontSize: '0.875rem',
+            backgroundColor: '#fef2f2',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            border: '1px solid #fecaca',
+            marginBottom: '1rem'
+          }}>
+            {error}
           </div>
-          
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
-              {error}
-            </div>
+        )}
+
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating || !request.trim()}
+          style={{
+            width: '100%',
+            padding: '0.875rem 1.5rem',
+            border: 'none',
+            borderRadius: '0.5rem',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: isGenerating || !request.trim() ? 'not-allowed' : 'pointer',
+            background: isGenerating || !request.trim() 
+              ? '#9ca3af' 
+              : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+            color: 'white',
+            boxShadow: isGenerating || !request.trim() 
+              ? 'none' 
+              : '0 4px 12px rgba(59, 130, 246, 0.3)',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          {isGenerating ? (
+            <>
+              <div style={{
+                width: '1rem',
+                height: '1rem',
+                border: '2px solid transparent',
+                borderTop: '2px solid currentColor',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              문항 생성 중...
+            </>
+          ) : (
+            '문항 생성하기'
           )}
+        </button>
+      </div>
 
-          <Button 
-            onClick={handleGenerate} 
-            disabled={isGenerating || !request.trim()}
-            className="w-full"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                문항 생성 중...
-              </>
-            ) : (
-              '문항 생성하기'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
+      {/* 생성된 문항 결과 */}
       {generatedQuestion && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>생성된 평가 문항</CardTitle>
-              <CardDescription>{generatedQuestion.단원_및_학년}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <div style={{ marginTop: '2rem' }}>
+          {/* 평가 문항 */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1.5rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '1.5rem' }}>📋</div>
+              <h2 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: '700', 
+                color: '#1e293b',
+                margin: 0
+              }}>
+                생성된 평가 문항
+              </h2>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <h4 style={{ 
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                단원 및 학년
+              </h4>
+              <div style={{
+                backgroundColor: '#f1f5f9',
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #e2e8f0'
+              }}>
+                {generatedQuestion.단원_및_학년}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <h4 style={{ 
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                예시문
+              </h4>
+              <div style={{
+                backgroundColor: '#f8fafc',
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #e2e8f0',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.6'
+              }}>
+                {generatedQuestion.예시문}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <h4 style={{ 
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                평가 문항
+              </h4>
+              <div style={{
+                backgroundColor: '#eff6ff',
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #bfdbfe',
+                lineHeight: '1.6'
+              }}>
+                {generatedQuestion.평가문항}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <h4 style={{ 
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                조건
+              </h4>
+              <div style={{
+                backgroundColor: '#fefce8',
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #fed7aa',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.6'
+              }}>
+                {generatedQuestion.조건}
+              </div>
+            </div>
+
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '1rem'
+            }}>
               <div>
-                <h4 className="font-semibold mb-2">예시문</h4>
-                <div className="bg-gray-50 p-4 rounded-md whitespace-pre-wrap">
-                  {generatedQuestion.예시문}
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '0.5rem'
+                }}>
+                  모범 답안 1
+                </h4>
+                <div style={{
+                  backgroundColor: '#f0fdf4',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #bbf7d0',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6'
+                }}>
+                  {generatedQuestion.모범_답안_1}
                 </div>
               </div>
-
               <div>
-                <h4 className="font-semibold mb-2">평가 문항</h4>
-                <div className="bg-blue-50 p-4 rounded-md">
-                  {generatedQuestion.평가문항}
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '0.5rem'
+                }}>
+                  모범 답안 2
+                </h4>
+                <div style={{
+                  backgroundColor: '#f0fdf4',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #bbf7d0',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6'
+                }}>
+                  {generatedQuestion.모범_답안_2}
                 </div>
               </div>
+            </div>
+          </div>
 
+          {/* 분석적 채점 기준 */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1.5rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '1.5rem' }}>📊</div>
+              <h2 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: '700', 
+                color: '#1e293b',
+                margin: 0
+              }}>
+                분석적 채점 기준
+              </h2>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <h4 className="font-semibold mb-2">조건</h4>
-                <div className="bg-yellow-50 p-4 rounded-md whitespace-pre-wrap">
-                  {generatedQuestion.조건}
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2">모범 답안 1</h4>
-                  <div className="bg-green-50 p-4 rounded-md whitespace-pre-wrap">
-                    {generatedQuestion.모범_답안_1}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">모범 답안 2</h4>
-                  <div className="bg-green-50 p-4 rounded-md whitespace-pre-wrap">
-                    {generatedQuestion.모범_답안_2}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>분석적 채점 기준</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-semibold mb-2">1. 과제수행: 내용의 적절성 및 완성도</h4>
-                <div className="bg-purple-50 p-4 rounded-md whitespace-pre-wrap">
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '0.5rem'
+                }}>
+                  1. 과제수행: 내용의 적절성 및 완성도
+                </h4>
+                <div style={{
+                  backgroundColor: '#faf5ff',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #e9d5ff',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6'
+                }}>
                   {generatedQuestion.분석적_채점_기준_1}
                 </div>
               </div>
+              
               <div>
-                <h4 className="font-semibold mb-2">2. 구성: 응집성 및 일관성</h4>
-                <div className="bg-purple-50 p-4 rounded-md whitespace-pre-wrap">
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '0.5rem'
+                }}>
+                  2. 구성: 응집성 및 일관성
+                </h4>
+                <div style={{
+                  backgroundColor: '#faf5ff',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #e9d5ff',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6'
+                }}>
                   {generatedQuestion.분석적_채점_기준_2}
                 </div>
               </div>
+              
               <div>
-                <h4 className="font-semibold mb-2">3. 언어사용: 어휘 및 어법의 정확성</h4>
-                <div className="bg-purple-50 p-4 rounded-md whitespace-pre-wrap">
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '0.5rem'
+                }}>
+                  3. 언어사용: 어휘 및 어법의 정확성
+                </h4>
+                <div style={{
+                  backgroundColor: '#faf5ff',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #e9d5ff',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6'
+                }}>
                   {generatedQuestion.분석적_채점_기준_3}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>총체적 채점 기준</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2 text-green-700">A 수준</h4>
-                  <div className="bg-green-50 p-4 rounded-md whitespace-pre-wrap text-sm">
-                    {generatedQuestion.총체적_채점_기준_A}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2 text-yellow-700">B 수준</h4>
-                  <div className="bg-yellow-50 p-4 rounded-md whitespace-pre-wrap text-sm">
-                    {generatedQuestion.총체적_채점_기준_B}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2 text-red-700">C 수준</h4>
-                  <div className="bg-red-50 p-4 rounded-md whitespace-pre-wrap text-sm">
-                    {generatedQuestion.총체적_채점_기준_C}
-                  </div>
+          {/* 총체적 채점 기준 */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1.5rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '1.5rem' }}>🎯</div>
+              <h2 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: '700', 
+                color: '#1e293b',
+                margin: 0
+              }}>
+                총체적 채점 기준
+              </h2>
+            </div>
+
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '1rem'
+            }}>
+              <div>
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#059669',
+                  marginBottom: '0.5rem'
+                }}>
+                  A 수준
+                </h4>
+                <div style={{
+                  backgroundColor: '#f0fdf4',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #bbf7d0',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6',
+                  fontSize: '0.875rem'
+                }}>
+                  {generatedQuestion.총체적_채점_기준_A}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              
+              <div>
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#d97706',
+                  marginBottom: '0.5rem'
+                }}>
+                  B 수준
+                </h4>
+                <div style={{
+                  backgroundColor: '#fefce8',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #fed7aa',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6',
+                  fontSize: '0.875rem'
+                }}>
+                  {generatedQuestion.총체적_채점_기준_B}
+                </div>
+              </div>
+              
+              <div>
+                <h4 style={{ 
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#dc2626',
+                  marginBottom: '0.5rem'
+                }}>
+                  C 수준
+                </h4>
+                <div style={{
+                  backgroundColor: '#fef2f2',
+                  padding: '1rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #fecaca',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6',
+                  fontSize: '0.875rem'
+                }}>
+                  {generatedQuestion.총체적_채점_기준_C}
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>성취수준별 예시 답안</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2 text-green-700">A 수준 예시</h4>
-                  <div className="bg-green-50 p-4 rounded-md whitespace-pre-wrap">
+          {/* 추가 섹션들 (성취수준별 예시 답안 및 피드백) */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0'
+          }}>
+            <h2 style={{ 
+              fontSize: '1.5rem', 
+              fontWeight: '700', 
+              color: '#1e293b',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem'
+            }}>
+              <div style={{ fontSize: '1.5rem' }}>💡</div>
+              성취수준별 예시 및 피드백
+            </h2>
+            
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '1.5rem'
+            }}>
+              {/* A 수준 */}
+              <div>
+                <h4 style={{ 
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#059669',
+                  marginBottom: '1rem',
+                  padding: '0.5rem',
+                  backgroundColor: '#f0fdf4',
+                  borderRadius: '0.5rem'
+                }}>
+                  A 수준
+                </h4>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <h5 style={{ 
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '0.5rem'
+                  }}>
+                    예시 답안
+                  </h5>
+                  <div style={{
+                    backgroundColor: '#f0fdf4',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #bbf7d0',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.5',
+                    fontSize: '0.875rem'
+                  }}>
                     {generatedQuestion.성취수준별_예시_답안_A}
                   </div>
                 </div>
+                
                 <div>
-                  <h4 className="font-semibold mb-2 text-yellow-700">B 수준 예시</h4>
-                  <div className="bg-yellow-50 p-4 rounded-md whitespace-pre-wrap">
-                    {generatedQuestion.성취수준별_예시_답안_B}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2 text-red-700">C 수준 예시</h4>
-                  <div className="bg-red-50 p-4 rounded-md whitespace-pre-wrap">
-                    {generatedQuestion.성취수준별_예시_답안_C}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>성취수준별 피드백</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2 text-green-700">A 수준 피드백</h4>
-                  <div className="bg-green-50 p-4 rounded-md whitespace-pre-wrap text-sm">
+                  <h5 style={{ 
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '0.5rem'
+                  }}>
+                    피드백
+                  </h5>
+                  <div style={{
+                    backgroundColor: '#f0fdf4',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #bbf7d0',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.5',
+                    fontSize: '0.875rem'
+                  }}>
                     {generatedQuestion.성취수준별_평가에_따른_예시_피드백_A}
                   </div>
                 </div>
+              </div>
+
+              {/* B 수준 */}
+              <div>
+                <h4 style={{ 
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#d97706',
+                  marginBottom: '1rem',
+                  padding: '0.5rem',
+                  backgroundColor: '#fefce8',
+                  borderRadius: '0.5rem'
+                }}>
+                  B 수준
+                </h4>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <h5 style={{ 
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '0.5rem'
+                  }}>
+                    예시 답안
+                  </h5>
+                  <div style={{
+                    backgroundColor: '#fefce8',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #fed7aa',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.5',
+                    fontSize: '0.875rem'
+                  }}>
+                    {generatedQuestion.성취수준별_예시_답안_B}
+                  </div>
+                </div>
+                
                 <div>
-                  <h4 className="font-semibold mb-2 text-yellow-700">B 수준 피드백</h4>
-                  <div className="bg-yellow-50 p-4 rounded-md whitespace-pre-wrap text-sm">
+                  <h5 style={{ 
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '0.5rem'
+                  }}>
+                    피드백
+                  </h5>
+                  <div style={{
+                    backgroundColor: '#fefce8',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #fed7aa',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.5',
+                    fontSize: '0.875rem'
+                  }}>
                     {generatedQuestion.성취수준별_평가에_따른_예시_피드백_B}
                   </div>
                 </div>
+              </div>
+
+              {/* C 수준 */}
+              <div>
+                <h4 style={{ 
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#dc2626',
+                  marginBottom: '1rem',
+                  padding: '0.5rem',
+                  backgroundColor: '#fef2f2',
+                  borderRadius: '0.5rem'
+                }}>
+                  C 수준
+                </h4>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <h5 style={{ 
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '0.5rem'
+                  }}>
+                    예시 답안
+                  </h5>
+                  <div style={{
+                    backgroundColor: '#fef2f2',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #fecaca',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.5',
+                    fontSize: '0.875rem'
+                  }}>
+                    {generatedQuestion.성취수준별_예시_답안_C}
+                  </div>
+                </div>
+                
                 <div>
-                  <h4 className="font-semibold mb-2 text-red-700">C 수준 피드백</h4>
-                  <div className="bg-red-50 p-4 rounded-md whitespace-pre-wrap text-sm">
+                  <h5 style={{ 
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '0.5rem'
+                  }}>
+                    피드백
+                  </h5>
+                  <div style={{
+                    backgroundColor: '#fef2f2',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #fecaca',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.5',
+                    fontSize: '0.875rem'
+                  }}>
                     {generatedQuestion.성취수준별_평가에_따른_예시_피드백_C}
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
+
     </div>
   )
 }
