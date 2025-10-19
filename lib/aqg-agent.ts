@@ -66,26 +66,49 @@ export class AQGAgent {
 
           const supabase = getServerSupabaseClient()
           
-          // 간단한 텍스트 검색 (실제로는 벡터 유사도 검색을 사용해야 함)
-          const { data: chunks, error } = await supabase
+          // 키워드 기반 검색 - 기본 PDF와 업로드된 PDF 모두 검색
+          const keywords = query.split(' ').filter(word => word.length > 2) // 2글자 이상 키워드만
+          let searchQuery = supabase
             .from('document_chunks')
             .select('chunk_text, metadata')
-            .ilike('chunk_text', `%${query}%`)
-            .limit(5)
+            .limit(10) // 더 많은 결과를 가져와서 정렬
+
+          // 키워드가 있으면 텍스트에서 검색
+          if (keywords.length > 0) {
+            // 여러 키워드에 대한 OR 검색
+            const orConditions = keywords.map(keyword => `chunk_text.ilike.%${keyword}%`).join(',')
+            searchQuery = searchQuery.or(orConditions)
+          } else {
+            // 키워드가 없으면 전체 텍스트 검색
+            searchQuery = searchQuery.ilike('chunk_text', `%${query}%`)
+          }
+
+          const { data: chunks, error } = await searchQuery
 
           if (error) {
             console.error('문서 검색 오류:', error)
             return []
           }
 
-          console.log(`검색 결과: ${chunks?.length || 0}개 청크 발견`)
+          console.log(`RAG 검색 결과: ${chunks?.length || 0}개 청크 발견`)
           
-          // Document 객체로 변환
-          const docs = (chunks || []).map(chunk => new Document({
+          // 기본 PDF 우선 정렬 (isDefault: true인 것들 먼저)
+          const sortedChunks = (chunks || []).sort((a, b) => {
+            const aIsDefault = a.metadata?.isDefault === true
+            const bIsDefault = b.metadata?.isDefault === true
+            
+            if (aIsDefault && !bIsDefault) return -1
+            if (!aIsDefault && bIsDefault) return 1
+            return 0
+          }).slice(0, 5) // 상위 5개만 반환
+          
+          // Document 객체로 변환 (정렬된 청크 사용)
+          const docs = sortedChunks.map(chunk => new Document({
             pageContent: chunk.chunk_text,
             metadata: chunk.metadata || {}
           }))
 
+          console.log(`최종 반환: ${docs.length}개 문서`)
           return docs
         } catch (error) {
           console.error('RAG 검색 실행 오류:', error)

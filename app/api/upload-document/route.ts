@@ -114,9 +114,10 @@ export async function POST(request: NextRequest) {
         embeddings.push({
           text: chunks[i],
           metadata: { 
-            source: file.name, 
+            source: `upload/${file.name}`, // 업로드된 파일임을 구분
             chunkIndex: i,
-            uploadTime: new Date().toISOString()
+            uploadTime: new Date().toISOString(),
+            isDefault: false // 기본 PDF와 구분
           }
         })
       } catch (error) {
@@ -130,11 +131,11 @@ export async function POST(request: NextRequest) {
     try {
       const supabase = getServerSupabaseClient()
       
-      // 문서 정보 저장
+      // 문서 정보 저장 (업로드된 파일임을 구분)
       const { data: docData, error: docError } = await supabase
         .from('documents')
         .insert({
-          filename: file.name,
+          filename: `upload/${file.name}`, // 업로드된 파일임을 구분
           file_size: file.size,
           text_content: text.substring(0, 10000), // 처음 10000자만 저장
           chunk_count: chunks.length,

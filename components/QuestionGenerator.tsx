@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface GeneratedQuestion {
   단원_및_학년: string
@@ -30,6 +30,11 @@ export default function QuestionGenerator() {
   const [error, setError] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [defaultPdfStatus, setDefaultPdfStatus] = useState<{
+    totalDocuments: number
+    totalChunks: number
+    documents: Array<{filename: string, chunk_count: number}>
+  } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,6 +81,56 @@ export default function QuestionGenerator() {
       }
     }
   }
+
+  // 기본 PDF 상태 확인
+  const checkDefaultPdfStatus = async () => {
+    try {
+      const response = await fetch('/api/preprocess-pdfs')
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setDefaultPdfStatus({
+          totalDocuments: data.totalDocuments,
+          totalChunks: data.totalChunks,
+          documents: data.documents || []
+        })
+      }
+    } catch (error) {
+      console.error('기본 PDF 상태 확인 오류:', error)
+    }
+  }
+
+  // 기본 PDF 전처리 실행
+  const preprocessDefaultPdfs = async (force = false) => {
+    try {
+      setIsUploading(true)
+      setError('')
+      
+      const url = force ? '/api/preprocess-pdfs?force=true' : '/api/preprocess-pdfs'
+      const response = await fetch(url, { method: 'POST' })
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || '전처리에 실패했습니다.')
+      }
+      
+      console.log('기본 PDF 전처리 완료:', data)
+      
+      // 상태 다시 확인
+      await checkDefaultPdfStatus()
+      
+    } catch (error) {
+      console.error('기본 PDF 전처리 오류:', error)
+      setError(error instanceof Error ? error.message : '전처리에 실패했습니다.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  // 컴포넌트 마운트 시 기본 PDF 상태 확인
+  useEffect(() => {
+    checkDefaultPdfStatus()
+  }, [])
 
   const handleGenerate = async () => {
     if (!request.trim()) {
@@ -199,6 +254,83 @@ export default function QuestionGenerator() {
         border: '1px solid #e2e8f0',
         marginBottom: '2rem'
       }}>
+        {/* 기본 PDF 상태 섹션 */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '0.75rem'
+          }}>
+            기본 참고 자료 (PDF 폴더)
+          </label>
+          
+          {defaultPdfStatus && (
+            <div style={{
+              padding: '1rem',
+              backgroundColor: defaultPdfStatus.totalDocuments > 0 ? '#f0fdf4' : '#fef2f2',
+              border: `1px solid ${defaultPdfStatus.totalDocuments > 0 ? '#bbf7d0' : '#fecaca'}`,
+              borderRadius: '0.5rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>
+                  처리된 문서: {defaultPdfStatus.totalDocuments}개 ({defaultPdfStatus.totalChunks}개 청크)
+                </span>
+                <button
+                  onClick={() => preprocessDefaultPdfs(true)}
+                  disabled={isUploading}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    fontSize: '0.75rem',
+                    backgroundColor: defaultPdfStatus.totalDocuments > 0 ? '#059669' : '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '0.25rem',
+                    cursor: isUploading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isUploading ? '처리 중...' : (defaultPdfStatus.totalDocuments > 0 ? '재처리' : '처리')}
+                </button>
+              </div>
+              
+              {defaultPdfStatus.documents.length > 0 && (
+                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                  포함된 파일: {defaultPdfStatus.documents.map(doc => doc.filename.replace('pdf/', '')).join(', ')}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!defaultPdfStatus && (
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#f9fafb',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              marginBottom: '1rem',
+              textAlign: 'center'
+            }}>
+              <button
+                onClick={() => preprocessDefaultPdfs()}
+                disabled={isUploading}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: isUploading ? 'not-allowed' : 'pointer',
+                  fontSize: '0.875rem'
+                }}
+              >
+                {isUploading ? '처리 중...' : '기본 PDF 파일 처리하기'}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* 파일 업로드 섹션 */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ 
@@ -208,7 +340,7 @@ export default function QuestionGenerator() {
             color: '#374151',
             marginBottom: '0.75rem'
           }}>
-            참고 문서 업로드 (선택사항)
+            추가 참고 문서 업로드 (선택사항)
           </label>
           <div style={{ marginBottom: '1rem' }}>
             <input
@@ -264,7 +396,7 @@ export default function QuestionGenerator() {
               marginTop: '0.5rem',
               textAlign: 'center'
             }}>
-              교과서나 평가 문항 PDF를 업로드하면 더 정확한 문항 생성이 가능합니다. (최대 10MB)
+              기본 PDF 파일과 함께 추가로 업로드할 수 있습니다. (최대 10MB)
             </p>
           </div>
           
