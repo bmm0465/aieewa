@@ -36,10 +36,18 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    console.log('Supabase 환경 변수 상태:', {
+      NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
+      SUPABASE_SERVICE_ROLE_KEY: !!supabaseKey
+    })
+    
+    if (!supabaseUrl || !supabaseKey) {
       console.warn('Supabase 환경 변수가 일부 누락되었습니다:', {
-        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+        NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
+        SUPABASE_SERVICE_ROLE_KEY: !!supabaseKey
       })
     }
 
@@ -112,6 +120,17 @@ export async function POST(request: NextRequest) {
     console.log('데이터베이스 저장 시작')
     
     try {
+      // Supabase 환경 변수 다시 확인 (이전에 체크했지만 안전성을 위해)
+      if (!supabaseUrl || !supabaseKey) {
+        console.warn('Supabase 환경 변수가 누락되어 데이터베이스 저장을 건너뜁니다.')
+        return NextResponse.json({
+          success: true,
+          question: result,
+          questionId: null,
+          warning: '문항은 생성되었지만 데이터베이스 설정이 누락되어 저장되지 않았습니다.'
+        })
+      }
+
       // 데이터베이스에 저장
       const supabase = getServerSupabaseClient()
       console.log('Supabase 클라이언트 생성 완료')
