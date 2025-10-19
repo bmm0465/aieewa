@@ -8,13 +8,27 @@ import { BookOpen, FileCheck, Brain } from 'lucide-react'
 
 // 동적 임포트로 컴포넌트 로드
 const QuestionGenerator = dynamic(() => import('@/components/QuestionGenerator'), {
-  ssr: false,
-  loading: () => <div className="text-center py-8 text-gray-600">로딩 중...</div>
+  ssr: true,
+  loading: () => (
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="text-center py-8 text-gray-600">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        문항 생성 컴포넌트 로딩 중...
+      </div>
+    </div>
+  )
 })
 
 const AnswerEvaluator = dynamic(() => import('@/components/AnswerEvaluator'), {
-  ssr: false,
-  loading: () => <div className="text-center py-8 text-gray-600">로딩 중...</div>
+  ssr: true,
+  loading: () => (
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="text-center py-8 text-gray-600">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        답안 평가 컴포넌트 로딩 중...
+      </div>
+    </div>
+  )
 })
 
 type TabType = 'home' | 'generate' | 'evaluate'
