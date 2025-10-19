@@ -2,6 +2,7 @@ import { ChatOpenAI } from '@langchain/openai'
 import { ChatPromptTemplate, FewShotPromptTemplate, PromptTemplate } from '@langchain/core/prompts'
 import { StringOutputParser } from '@langchain/core/output_parsers'
 import { Document } from '@langchain/core/documents'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from './types/aqg'
 
 // 환경 변수 설정
@@ -232,9 +233,8 @@ You can play Please come 1
     console.log("[AQG - GENERATE]")
     
     try {
-      // FewShotPromptTemplate 대신 직접 ChatPromptTemplate 사용
-      const generatePrompt = ChatPromptTemplate.fromMessages([
-        ["system", `당신은 초등 영어 서술형 평가 문항 및 채점 기준을 전문적으로 개발하는 평가 전문가입니다. 
+      // 직접 문자열로 프롬프트 구성하여 템플릿 변수 문제 해결
+      const systemMessage = `당신은 초등 영어 서술형 평가 문항 및 채점 기준을 전문적으로 개발하는 평가 전문가입니다. 
 당신의 역할은 예시와 검색된 문서 내용을 바탕으로, 초등학생 수준에 적합하고 교육과정에 부합하는 평가 문항과 채점 기준을 생성하는 것입니다. 
 문항과 채점 기준은 다음과 같은 조건을 충족해야 합니다: 
 1) 사용되는 어휘와 문장 구성은 교과서 수준과 유사해야 합니다. 
@@ -243,46 +243,60 @@ You can play Please come 1
 
 다음 JSON 형식으로 응답해주세요:
 {
-  "단원_및_학년": "단원과 학년 정보",
-  "예시문": "평가에 사용할 예시문",
-  "평가문항": "서술형 평가 문항",
-  "조건": "서술형 평가 문항 조건",
-  "모범_답안_1": "모범 답안 1",
-  "모범_답안_2": "모범 답안 2",
-  "분석적_채점_기준_1": "분석적 채점 기준 1",
-  "분석적_채점_기준_2": "분석적 채점 기준 2",
-  "분석적_채점_기준_3": "분석적 채점 기준 3",
-  "총체적_채점_기준_A": "총체적 채점 기준 A",
-  "총체적_채점_기준_B": "총체적 채점 기준 B",
-  "총체적_채점_기준_C": "총체적 채점 기준 C",
-  "성취수준별_예시_답안_A": "A 수준 예시 답안",
-  "성취수준별_예시_답안_B": "B 수준 예시 답안",
-  "성취수준별_예시_답안_C": "C 수준 예시 답안",
-  "성취수준별_평가에_따른_예시_피드백_A": "A 수준 피드백",
-  "성취수준별_평가에_따른_예시_피드백_B": "B 수준 피드백",
-  "성취수준별_평가에_따른_예시_피드백_C": "C 수준 피드백"
-}`],
-        ["human", "검색된 문서: {context}\n요청: {request}\n\n적절한 평가 문항과 채점 기준을 생성해주세요."]
-      ])
+  "단원_및_학년": "단원과 학년 정보를 여기에 입력",
+  "예시문": "평가에 사용할 예시문을 여기에 입력",
+  "평가문항": "서술형 평가 문항을 여기에 입력",
+  "조건": "서술형 평가 문항 조건을 여기에 입력",
+  "모범_답안_1": "모범 답안 1을 여기에 입력",
+  "모범_답안_2": "모범 답안 2를 여기에 입력",
+  "분석적_채점_기준_1": "분석적 채점 기준 1을 여기에 입력",
+  "분석적_채점_기준_2": "분석적 채점 기준 2를 여기에 입력",
+  "분석적_채점_기준_3": "분석적 채점 기준 3을 여기에 입력",
+  "총체적_채점_기준_A": "총체적 채점 기준 A를 여기에 입력",
+  "총체적_채점_기준_B": "총체적 채점 기준 B를 여기에 입력",
+  "총체적_채점_기준_C": "총체적 채점 기준 C를 여기에 입력",
+  "성취수준별_예시_답안_A": "A 수준 예시 답안을 여기에 입력",
+  "성취수준별_예시_답안_B": "B 수준 예시 답안을 여기에 입력",
+  "성취수준별_예시_답안_C": "C 수준 예시 답안을 여기에 입력",
+  "성취수준별_평가에_따른_예시_피드백_A": "A 수준 피드백을 여기에 입력",
+  "성취수준별_평가에_따른_예시_피드백_B": "B 수준 피드백을 여기에 입력",
+  "성취수준별_평가에_따른_예시_피드백_C": "C 수준 피드백을 여기에 입력"
+}`
 
-      const chain = generatePrompt.pipe(this.llmGen).pipe(new StringOutputParser())
-      
+      const humanMessage = `검색된 문서: ${state.context || "검색된 문서가 없습니다."}
+요청: ${state.request}
+
+적절한 평가 문항과 채점 기준을 생성해주세요.`
+
+      // 직접 LLM 호출하여 템플릿 변수 문제 회피
+      const messages = [
+        new SystemMessage(systemMessage),
+        new HumanMessage(humanMessage)
+      ]
+
       console.log('LLM 호출 시작')
-      const result = await chain.invoke({
-        context: state.context || "검색된 문서가 없습니다.",
-        request: state.request
-      })
+      const result = await this.llmGen.invoke(messages)
       
-      console.log('LLM 응답 받음, 길이:', result?.length || 0)
+      console.log('LLM 응답 받음, 타입:', typeof result)
+      
+      // LangChain 응답 구조 확인
+      let responseContent: string
+      if (result && typeof result === 'object' && 'content' in result) {
+        responseContent = String(result.content)
+      } else {
+        responseContent = String(result)
+      }
+      
+      console.log('응답 콘텐츠 길이:', responseContent?.length || 0)
 
-      if (!result || typeof result !== 'string') {
+      if (!responseContent || responseContent === 'undefined' || responseContent === 'null') {
         throw new Error('LLM이 유효한 응답을 반환하지 않았습니다.')
       }
 
       console.log('JSON 파싱 시도 시작')
       
       // 더 robust한 JSON 파싱
-      let cleanedResult = result.trim()
+      let cleanedResult = responseContent.trim()
       
       // 여러 패턴으로 JSON 추출 시도
       const jsonPatterns = [
