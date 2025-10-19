@@ -24,22 +24,70 @@ export async function POST(request: NextRequest) {
     }
 
     // 환경 변수 확인
+    console.log('환경 변수 확인 중...')
+    console.log('OPENAI_API_KEY 존재:', !!process.env.OPENAI_API_KEY)
+    console.log('OPENAI_API_KEY 길이:', process.env.OPENAI_API_KEY?.length || 0)
+    
     if (!process.env.OPENAI_API_KEY) {
       console.error('OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.')
       return NextResponse.json(
-        { error: 'OpenAI API 키가 설정되지 않았습니다.' },
+        { error: 'OpenAI API 키가 설정되지 않았습니다. 관리자에게 문의해주세요.' },
         { status: 500 }
       )
+    }
+    
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.warn('Supabase 환경 변수가 일부 누락되었습니다:', {
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+      })
     }
 
     console.log('AQG 에이전트 초기화 시작')
     
-    // AQG 에이전트 실행
-    const aqgAgent = new AQGAgent()
+    let aqgAgent
+    try {
+      // AQG 에이전트 실행
+      aqgAgent = new AQGAgent()
+      console.log('AQG 에이전트 초기화 완료')
+    } catch (initError) {
+      console.error('AQG 에이전트 초기화 실패:', initError)
+      return NextResponse.json(
+        { error: `AI 모델 초기화에 실패했습니다: ${initError instanceof Error ? initError.message : '알 수 없는 오류'}` },
+        { status: 500 }
+      )
+    }
+    
     console.log('AQG 에이전트 run 메서드 호출')
     
-    const result = await aqgAgent.run(questionRequest)
-    console.log('AQG 에이전트 실행 완료:', result)
+    let result
+    try {
+      result = await aqgAgent.run(questionRequest)
+      console.log('AQG 에이전트 실행 완료:', !!result)
+    } catch (runError) {
+      console.error('AQG 에이전트 실행 실패:', runError)
+      
+      let errorMessage = 'AI가 문항 생성 중 오류가 발생했습니다.'
+      if (runError instanceof Error) {
+        errorMessage = runError.message
+        
+        // 구체적인 에러 메시지 제공
+        if (runError.message.includes('API key') || runError.message.includes('인증')) {
+          errorMessage = 'AI 서비스 인증에 문제가 있습니다.'
+        } else if (runError.message.includes('rate limit') || runError.message.includes('사용량')) {
+          errorMessage = 'AI 서비스 사용량이 초과되었습니다. 잠시 후 다시 시도해주세요.'
+        } else if (runError.message.includes('network') || runError.message.includes('네트워크')) {
+          errorMessage = 'AI 서비스 연결에 문제가 있습니다.'
+        } else if (runError.message.includes('파싱') || runError.message.includes('parsing')) {
+          errorMessage = 'AI 응답 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
+        }
+      }
+      
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: 500 }
+      )
+    }
 
     if (!result) {
       console.error('AQG 에이전트가 빈 결과를 반환했습니다.')

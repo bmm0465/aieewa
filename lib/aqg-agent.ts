@@ -21,19 +21,29 @@ export class AQGAgent {
   private parser: any
 
   constructor() {
-    this.llmGen = new ChatOpenAI({
-      modelName: "gpt-4o",
-      temperature: 0.3,
-      openAIApiKey: process.env.OPENAI_API_KEY,
-    })
+    // 환경 변수 체크
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.')
+    }
 
-    this.llmJudge = new ChatOpenAI({
-      modelName: "gpt-4o", 
-      temperature: 0,
-      openAIApiKey: process.env.OPENAI_API_KEY,
-    })
+    try {
+      this.llmGen = new ChatOpenAI({
+        modelName: "gpt-4o",
+        temperature: 0.3,
+        openAIApiKey: process.env.OPENAI_API_KEY,
+      })
 
-    this.parser = AQGSchema
+      this.llmJudge = new ChatOpenAI({
+        modelName: "gpt-4o", 
+        temperature: 0,
+        openAIApiKey: process.env.OPENAI_API_KEY,
+      })
+
+      this.parser = AQGSchema
+    } catch (error) {
+      console.error('AQGAgent 초기화 오류:', error)
+      throw new Error('AI 모델 초기화에 실패했습니다.')
+    }
   }
 
   // 간단한 검색 설정 (배포 환경에서 벡터 스토어 제거)
@@ -221,25 +231,92 @@ You can play Please come 1
   async generate(state: GraphStateAQG): Promise<GraphStateAQG> {
     console.log("[AQG - GENERATE]")
     
-    const prompt = this.getPromptTemplate()
-    const chain = prompt.pipe(this.llmGen).pipe(new StringOutputParser())
-    
-    const result = await chain.invoke({
-      context: state.context,
-      request: state.request
-    })
-
     try {
-      // JSON 파싱 시도
-      const cleanedResult = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      const parsedResult = JSON.parse(cleanedResult)
-      state.answer = AQGSchema.parse(parsedResult)
-    } catch (error) {
-      console.error('JSON 파싱 실패:', error)
-      throw new Error('생성된 답안을 파싱할 수 없습니다.')
-    }
+      const prompt = this.getPromptTemplate()
+      const chain = prompt.pipe(this.llmGen).pipe(new StringOutputParser())
+      
+      console.log('LLM 호출 시작')
+      const result = await chain.invoke({
+        context: state.context || "검색된 문서가 없습니다.",
+        request: state.request
+      })
+      
+      console.log('LLM 응답 받음, 길이:', result?.length || 0)
 
-    return state
+      if (!result || typeof result !== 'string') {
+        throw new Error('LLM이 유효한 응답을 반환하지 않았습니다.')
+      }
+
+      console.log('JSON 파싱 시도 시작')
+      
+      // 더 robust한 JSON 파싱
+      let cleanedResult = result.trim()
+      
+      // 여러 패턴으로 JSON 추출 시도
+      const jsonPatterns = [
+        /```json\s*([\s\S]*?)\s*```/,
+        /```\s*([\s\S]*?)\s*```/,
+        /(\{[\s\S]*\})/
+      ]
+      
+      for (const pattern of jsonPatterns) {
+        const match = cleanedResult.match(pattern)
+        if (match) {
+          cleanedResult = match[1] || match[0]
+          break
+        }
+      }
+      
+      // 마크다운 코드 블록 제거
+      cleanedResult = cleanedResult.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      
+      console.log('정리된 JSON:', cleanedResult.substring(0, 200) + '...')
+      
+      let parsedResult
+      try {
+        parsedResult = JSON.parse(cleanedResult)
+      } catch (parseError) {
+        console.error('JSON.parse 실패:', parseError)
+        console.log('시도한 JSON:', cleanedResult)
+        
+        // 마지막 시도: { 부터 } 까지 찾기
+        const startIndex = cleanedResult.indexOf('{')
+        const lastIndex = cleanedResult.lastIndexOf('}')
+        if (startIndex !== -1 && lastIndex !== -1 && lastIndex > startIndex) {
+          const jsonPart = cleanedResult.substring(startIndex, lastIndex + 1)
+          console.log('부분 JSON 추출 시도:', jsonPart.substring(0, 100) + '...')
+          parsedResult = JSON.parse(jsonPart)
+        } else {
+          throw parseError
+        }
+      }
+      
+      console.log('JSON 파싱 성공')
+      
+      // Zod 스키마 검증
+      const validatedResult = AQGSchema.parse(parsedResult)
+      console.log('스키마 검증 성공')
+      
+      state.answer = validatedResult
+      return state
+      
+    } catch (error) {
+      console.error('generate 메서드 전체 오류:', error)
+      console.error('state.request:', state.request)
+      console.error('state.context:', state.context)
+      
+      if (error instanceof Error) {
+        if (error.message.includes('API key') || error.message.includes('authentication')) {
+          throw new Error('OpenAI API 키 인증에 실패했습니다.')
+        } else if (error.message.includes('rate limit')) {
+          throw new Error('API 사용량이 초과되었습니다. 잠시 후 다시 시도해주세요.')
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          throw new Error('네트워크 연결에 문제가 있습니다.')
+        }
+      }
+      
+      throw new Error(`문항 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    }
   }
 
   // 문맥-답안 관련성 판단
