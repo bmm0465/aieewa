@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import './globals.css'
 
 export const metadata: Metadata = {
   title: 'AIEEWA - 초등 영어 서술형 평가 시스템',
@@ -32,7 +31,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body className="min-h-screen bg-gray-50 font-sans antialiased">
+      <body style={{ 
+        margin: 0, 
+        padding: 0, 
+        fontFamily: 'system-ui, sans-serif',
+        minHeight: '100vh',
+        backgroundColor: '#f9fafb'
+      }}>
         {children}
       </body>
     </html>

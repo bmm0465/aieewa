@@ -1,55 +1,128 @@
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'AIEEWA - 초등 영어 서술형 평가 시스템',
-  description: 'LLM 기반 초등 영어 서술형 평가 문항 생성 및 자동 채점 시스템',
-}
-
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-4xl mx-auto p-8 text-center">
-        <h1 className="text-5xl font-bold text-gray-900 mb-6">
+    <div style={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      backgroundColor: '#f9fafb',
+      fontFamily: 'system-ui, sans-serif'
+    }}>
+      <div style={{ 
+        textAlign: 'center', 
+        maxWidth: '800px', 
+        padding: '2rem' 
+      }}>
+        <h1 style={{ 
+          fontSize: '3rem', 
+          fontWeight: 'bold', 
+          color: '#111827',
+          marginBottom: '1rem'
+        }}>
           AIEEWA
         </h1>
-        <p className="text-2xl text-gray-600 mb-8">
+        <p style={{ 
+          fontSize: '1.5rem', 
+          color: '#6b7280',
+          marginBottom: '2rem'
+        }}>
           LLM 기반 초등 영어 서술형 평가 시스템
         </p>
-        <p className="text-lg text-gray-500 mb-12 max-w-3xl mx-auto">
+        <p style={{ 
+          fontSize: '1.1rem', 
+          color: '#9ca3af',
+          marginBottom: '3rem',
+          maxWidth: '600px',
+          marginLeft: 'auto',
+          marginRight: 'auto'
+        }}>
           GPT-4o와 RAG, Self-RAG, LLM-as-a-Judge를 활용하여 초등 영어 서술형 평가 문항을 생성하고, 
           학생 답안을 자동 채점하며 맞춤형 피드백을 제공합니다.
         </p>
         
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-lg shadow-lg p-8 border">
-            <div className="text-4xl mb-4">📝</div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">문항 생성</h2>
-            <p className="text-gray-600 mb-6">
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+          gap: '2rem',
+          marginTop: '2rem'
+        }}>
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '0.5rem',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e5e7eb'
+          }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📝</div>
+            <h2 style={{ 
+              fontSize: '1.25rem', 
+              fontWeight: '600', 
+              color: '#374151',
+              marginBottom: '1rem'
+            }}>
+              문항 생성
+            </h2>
+            <p style={{ 
+              color: '#6b7280',
+              marginBottom: '1.5rem'
+            }}>
               AI를 활용하여 초등 영어 서술형 평가 문항과 채점 기준을 자동 생성합니다.
             </p>
             <a 
               href="/generate" 
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              style={{ 
+                display: 'inline-block',
+                backgroundColor: '#2563eb',
+                color: 'white',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.5rem',
+                textDecoration: 'none',
+                fontWeight: '500'
+              }}
             >
               문항 생성하기
             </a>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-8 border">
-            <div className="text-4xl mb-4">✅</div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">답안 평가</h2>
-            <p className="text-gray-600 mb-6">
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '0.5rem',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e5e7eb'
+          }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>✅</div>
+            <h2 style={{ 
+              fontSize: '1.25rem', 
+              fontWeight: '600', 
+              color: '#374151',
+              marginBottom: '1rem'
+            }}>
+              답안 평가
+            </h2>
+            <p style={{ 
+              color: '#6b7280',
+              marginBottom: '1.5rem'
+            }}>
               학생의 서술형 답안을 AI가 자동으로 채점하고 개별화된 피드백을 제공합니다.
             </p>
             <a 
               href="/evaluate" 
-              className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+              style={{ 
+                display: 'inline-block',
+                backgroundColor: '#16a34a',
+                color: 'white',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.5rem',
+                textDecoration: 'none',
+                fontWeight: '500'
+              }}
             >
               답안 평가하기
             </a>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }
