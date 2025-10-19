@@ -17,17 +17,6 @@ export default function Home() {
     setIsMounted(true)
   }, [])
 
-  if (!isMounted) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
-        </div>
-      </div>
-    )
-  }
-
   const renderContent = () => {
     switch (activeTab) {
       case 'generate':
@@ -130,17 +119,44 @@ export default function Home() {
     }
   }
 
+  // 서버 사이드 렌더링을 위한 기본 컨텐츠
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold mb-4">
+              AIEEWA
+            </h1>
+            <p className="text-xl text-gray-600 mb-8">
+              LLM 기반 초등 영어 서술형 평가 시스템
+            </p>
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              GPT-4o와 RAG, Self-RAG, LLM-as-a-Judge를 활용하여 초등 영어 서술형 평가 문항을 생성하고, 
+              학생 답안을 자동 채점하며 맞춤형 피드백을 제공합니다.
+            </p>
+          </div>
+          <div className="flex justify-center items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-600">로딩 중...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 클라이언트 사이드 렌더링
   if (activeTab !== 'home') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white border-b">
+        <nav className="bg-white border-b shadow-sm">
           <div className="max-w-6xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Button 
                   variant="ghost" 
                   onClick={() => setActiveTab('home')}
-                  className="text-lg font-bold"
+                  className="text-lg font-bold text-blue-600 hover:text-blue-700"
                 >
                   AIEEWA
                 </Button>
@@ -170,7 +186,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50">
       {renderContent()}
     </div>
   )
