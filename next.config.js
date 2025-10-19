@@ -9,7 +9,7 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production'
   },
-  // 정적 파일 처리 및 라우팅 최적화
+  // 정적 파일 처리
   async headers() {
     return [
       {
@@ -23,9 +23,6 @@ const nextConfig = {
       },
     ]
   },
-  // 라우팅 문제 방지
-  trailingSlash: false,
-  skipTrailingSlashRedirect: true,
 }
 
 module.exports = nextConfig
