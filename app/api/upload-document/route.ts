@@ -105,9 +105,9 @@ export async function POST(request: NextRequest) {
 
     console.log('텍스트 청크 처리 시작')
     
-    // 임베딩 생성 (간단한 방법으로)
+    // 모든 청크 처리 (제한 제거)
     const embeddings = []
-    for (let i = 0; i < Math.min(chunks.length, 10); i++) { // 최대 10개 청크만 처리
+    for (let i = 0; i < chunks.length; i++) {
       try {
         // 실제로는 OpenAI Embeddings API를 사용해야 하지만, 
         // 여기서는 텍스트 청크를 그대로 저장하는 방식 사용
@@ -149,16 +149,25 @@ export async function POST(request: NextRequest) {
       } else {
         console.log('문서 저장 성공:', docData.id)
         
-        // 청크들 저장
-        for (const embedding of embeddings) {
-          await supabase
+        // 청크들 배치 저장 (성능 개선)
+        const chunksToInsert = embeddings.map(embedding => ({
+          document_id: docData.id,
+          chunk_text: embedding.text,
+          chunk_index: embedding.metadata.chunkIndex,
+          metadata: embedding.metadata,
+        }))
+
+        // 배치로 저장 (큰 파일 처리 시 성능 향상)
+        const batchSize = 50
+        for (let i = 0; i < chunksToInsert.length; i += batchSize) {
+          const batch = chunksToInsert.slice(i, i + batchSize)
+          const { error: chunkError } = await supabase
             .from('document_chunks')
-            .insert({
-              document_id: docData.id,
-              chunk_text: embedding.text,
-              chunk_index: embedding.metadata.chunkIndex,
-              metadata: embedding.metadata,
-            })
+            .insert(batch)
+
+          if (chunkError) {
+            console.error(`청크 ${i}-${i + batchSize} 저장 오류:`, chunkError)
+          }
         }
         console.log('청크 저장 완료')
       }

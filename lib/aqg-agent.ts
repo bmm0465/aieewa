@@ -11,9 +11,14 @@ if (typeof window === 'undefined') {
   process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY
 }
 
-// 문서 포맷 함수
+// 문서 포맷 함수 (관련성 점수 포함)
 function formatDocs(docs: Document[]): string {
-  return docs.map(doc => doc.pageContent).join("\n\n")
+  return docs.map((doc, index) => {
+    const score = doc.metadata?.relevanceScore || 0
+    const source = doc.metadata?.source || 'unknown'
+    return `[문서 ${index + 1}] (관련성: ${score}, 출처: ${source})
+${doc.pageContent}`;
+  }).join("\n\n")
 }
 
 export class AQGAgent {
@@ -66,49 +71,99 @@ export class AQGAgent {
 
           const supabase = getServerSupabaseClient()
           
-          // 키워드 기반 검색 - 기본 PDF와 업로드된 PDF 모두 검색
-          const keywords = query.split(' ').filter(word => word.length > 2) // 2글자 이상 키워드만
-          let searchQuery = supabase
+          // 하이브리드 검색: 키워드 검색 + 의미적 검색
+          const keywords = query.split(' ').filter(word => word.length > 1) // 1글자 이상 키워드 포함
+          
+          // 1. 키워드 기반 검색 (더 많은 결과 가져오기)
+          let keywordResults: any[] = []
+          if (keywords.length > 0) {
+            const keywordConditions = keywords.map(keyword => `chunk_text.ilike.%${keyword}%`).join(',')
+            const { data: keywordChunks, error: keywordError } = await supabase
+              .from('document_chunks')
+              .select('chunk_text, metadata')
+              .or(keywordConditions)
+              .limit(20) // 키워드 검색 결과 증가
+
+            if (!keywordError && keywordChunks) {
+              keywordResults = keywordChunks
+              console.log(`키워드 검색 결과: ${keywordResults.length}개 청크`)
+            }
+          }
+
+          // 2. 전체 텍스트 검색 (의미적 검색 대용)
+          const { data: textSearchResults, error: textError } = await supabase
             .from('document_chunks')
             .select('chunk_text, metadata')
-            .limit(10) // 더 많은 결과를 가져와서 정렬
+            .ilike('chunk_text', `%${query}%`)
+            .limit(15)
 
-          // 키워드가 있으면 텍스트에서 검색
-          if (keywords.length > 0) {
-            // 여러 키워드에 대한 OR 검색
-            const orConditions = keywords.map(keyword => `chunk_text.ilike.%${keyword}%`).join(',')
-            searchQuery = searchQuery.or(orConditions)
-          } else {
-            // 키워드가 없으면 전체 텍스트 검색
-            searchQuery = searchQuery.ilike('chunk_text', `%${query}%`)
+          let textResults: any[] = []
+          if (!textError && textSearchResults) {
+            textResults = textSearchResults
+            console.log(`텍스트 검색 결과: ${textResults.length}개 청크`)
           }
 
-          const { data: chunks, error } = await searchQuery
+          // 3. 결과 병합 및 중복 제거
+          const allChunks = [...keywordResults, ...textResults]
+          const uniqueChunks = allChunks.filter((chunk, index, self) => 
+            index === self.findIndex(c => c.chunk_text === chunk.chunk_text)
+          )
 
-          if (error) {
-            console.error('문서 검색 오류:', error)
-            return []
-          }
-
-          console.log(`RAG 검색 결과: ${chunks?.length || 0}개 청크 발견`)
+          console.log(`RAG 검색 총 결과: ${uniqueChunks.length}개 청크`)
           
-          // 기본 PDF 우선 정렬 (isDefault: true인 것들 먼저)
-          const sortedChunks = (chunks || []).sort((a, b) => {
-            const aIsDefault = a.metadata?.isDefault === true
-            const bIsDefault = b.metadata?.isDefault === true
+          // 4. 관련성 점수 기반 정렬 (키워드 매칭 개수 기준)
+          const scoredChunks = uniqueChunks.map(chunk => {
+            const text = chunk.chunk_text.toLowerCase()
+            const queryLower = query.toLowerCase()
+            const keywordsLower = keywords.map(k => k.toLowerCase())
             
-            if (aIsDefault && !bIsDefault) return -1
-            if (!aIsDefault && bIsDefault) return 1
-            return 0
-          }).slice(0, 5) // 상위 5개만 반환
+            let score = 0
+            
+            // 키워드 매칭 점수
+            keywordsLower.forEach(keyword => {
+              if (text.includes(keyword)) {
+                score += 2
+                // 연속된 키워드 매칭 추가 점수
+                if (queryLower.includes(keyword)) {
+                  score += 1
+                }
+              }
+            })
+            
+            // 전체 쿼리 매칭 점수
+            if (text.includes(queryLower)) {
+              score += 3
+            }
+            
+            // 청크 길이에 따른 정규화 (너무 짧거나 긴 청크 불이익)
+            if (text.length < 50) score -= 1
+            if (text.length > 2000) score -= 1
+            
+            return { ...chunk, score }
+          })
+
+          // 점수 순으로 정렬하고 기본 PDF 우선순위 적용
+          const sortedChunks = scoredChunks
+            .sort((a, b) => {
+              // 기본 PDF 우선
+              const aIsDefault = a.metadata?.isDefault === true
+              const bIsDefault = b.metadata?.isDefault === true
+              
+              if (aIsDefault && !bIsDefault) return -1
+              if (!aIsDefault && bIsDefault) return 1
+              
+              // 점수 순 정렬
+              return b.score - a.score
+            })
+            .slice(0, 8) // 검색 결과 수 증가 (5개 → 8개)
           
-          // Document 객체로 변환 (정렬된 청크 사용)
+          // Document 객체로 변환
           const docs = sortedChunks.map(chunk => new Document({
             pageContent: chunk.chunk_text,
-            metadata: chunk.metadata || {}
+            metadata: { ...chunk.metadata, relevanceScore: chunk.score }
           }))
 
-          console.log(`최종 반환: ${docs.length}개 문서`)
+          console.log(`최종 반환: ${docs.length}개 문서 (점수: ${sortedChunks.map(c => c.score).join(', ')})`)
           return docs
         } catch (error) {
           console.error('RAG 검색 실행 오류:', error)
@@ -326,10 +381,12 @@ You can play Please come 1
   "성취수준별_평가에_따른_예시_피드백_C": "C 수준 피드백을 여기에 입력"
 }`
 
-      const humanMessage = `검색된 문서: ${state.context || "검색된 문서가 없습니다."}
+      const humanMessage = `검색된 문서 (관련성 점수와 함께):
+${state.context || "검색된 문서가 없습니다."}
+
 요청: ${state.request}
 
-적절한 평가 문항과 채점 기준을 생성해주세요.`
+위 검색된 문서들을 참고하여, 특히 관련성이 높은 내용을 우선적으로 활용하여 적절한 평가 문항과 채점 기준을 생성해주세요. 큰 교과서 PDF의 내용도 충분히 반영하여 질 높은 문항을 만들어주세요.`
 
       // 직접 LLM 호출하여 템플릿 변수 문제 회피
       const messages = [
