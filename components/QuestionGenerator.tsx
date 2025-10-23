@@ -46,8 +46,12 @@ export default function QuestionGenerator() {
       return
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError('파일 크기는 10MB를 초과할 수 없습니다.')
+    // Vercel 배포를 위한 파일 크기 제한
+    const maxSizeMB = process.env.NODE_ENV === 'production' ? 4 : 10
+    const maxFileSize = maxSizeMB * 1024 * 1024
+    
+    if (file.size > maxFileSize) {
+      setError(`파일 크기는 ${maxSizeMB}MB를 초과할 수 없습니다.`)
       return
     }
 

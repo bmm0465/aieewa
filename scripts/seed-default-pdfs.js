@@ -7,22 +7,13 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.loc
 const { readdir, readFile } = require('fs/promises')
 const { join } = require('path')
 const { existsSync } = require('fs')
-// pdf-parse import - 가장 간단한 방식으로 문제 해결
+// pdf-parse import - 완전히 다른 방식으로 수정
 const pdfParseModule = require('pdf-parse')
-const pdfParse = (buffer) => {
+const pdfParse = (buffer, options = {}) => {
   return new Promise((resolve, reject) => {
-    try {
-      const parser = new pdfParseModule.PDFParse()
-      parser.on('pdfParser_dataReady', (data) => {
-        resolve(data)
-      })
-      parser.on('pdfParser_dataError', (error) => {
-        reject(error)
-      })
-      parser.parseBuffer(buffer)
-    } catch (error) {
-      reject(error)
-    }
+    pdfParseModule(buffer, options)
+      .then(resolve)
+      .catch(reject)
   })
 }
 const { createClient } = require('@supabase/supabase-js')
@@ -104,7 +95,7 @@ async function seedDefaultPdfs() {
         const filePath = join(pdfFolderPath, filename)
         const fileBuffer = await readFile(filePath)
         
-        const pdfData = await pdfParse(fileBuffer)
+        const pdfData = await pdfParse(fileBuffer, {})
         const text = pdfData.text
 
         if (!text || text.trim().length === 0) {

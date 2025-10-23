@@ -1,1 +1,0 @@
-{"version":1,"functions":{"/api/evaluate-answer":{"maxDuration":60},"/api/generate-question":{"maxDuration":60},"/api/preprocess-pdfs":{"maxDuration":300},"/api/upload-document":{"maxDuration":60},"/api/questions":{},"/api/evaluate-answer-aas":{"maxDuration":60}}}

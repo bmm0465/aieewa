@@ -4,6 +4,7 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 const pdfParse = require('pdf-parse')
 import { getServerSupabaseClient } from '@/lib/supabase'
+import { processChunksWithEmbeddings } from '@/lib/embeddings'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5분으로 증가 (여러 PDF 처리 시간 고려)
@@ -190,33 +191,22 @@ export async function POST(request: NextRequest) {
             .eq('document_id', docData.id)
         }
 
-        // 청크들 저장
-        const chunksToInsert = chunks.map((chunk, index) => ({
-          document_id: docData.id,
-          chunk_text: chunk,
-          chunk_index: index,
+        // 청크들 벡터 임베딩과 함께 저장
+        const chunksWithMetadata = chunks.map((chunk, index) => ({
+          text: chunk,
           metadata: {
             source: `pdf/${filename}`,
             chunkIndex: index,
             uploadTime: new Date().toISOString(),
             isDefault: true
-          }
+          },
+          chunkIndex: index
         }))
 
-        // 배치로 저장
-        const batchSize = 50
-        for (let i = 0; i < chunksToInsert.length; i += batchSize) {
-          const batch = chunksToInsert.slice(i, i + batchSize)
-          const { error: chunkError } = await supabase
-            .from('document_chunks')
-            .insert(batch)
+        // 벡터 임베딩 생성 및 저장
+        await processChunksWithEmbeddings(chunksWithMetadata, docData.id)
 
-          if (chunkError) {
-            console.error(`${filename} 청크 ${i}-${i + batchSize} 저장 오류:`, chunkError)
-          }
-        }
-
-        console.log(`${filename}: ${chunks.length}개 청크 저장 완료`)
+        console.log(`${filename}: ${chunks.length}개 청크 벡터 임베딩 저장 완료`)
         results.push({ 
           filename, 
           status: 'success', 

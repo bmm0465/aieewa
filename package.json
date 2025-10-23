@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "seed-pdfs": "node scripts/seed-default-pdfs.js",
-    "seed-pdfs:help": "echo 'Please set environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'"
+    "seed-pdfs:help": "echo 'Please set environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'",
+    "check-env": "node scripts/check-env.js"
   },
   "dependencies": {
     "@langchain/core": "^0.1.0",

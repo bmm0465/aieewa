@@ -7,6 +7,12 @@
   "functions": {
     "app/api/**": {
       "maxDuration": 60
+    },
+    "app/api/preprocess-pdfs/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/upload-document/route.ts": {
+      "maxDuration": 120
     }
   }
 }

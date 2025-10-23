@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS document_chunks (
   chunk_text TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   metadata JSONB,
+  embedding VECTOR(1536), -- OpenAI text-embedding-3-small 벡터 차원
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -82,3 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_evaluation_sessions_status ON evaluation_sessions
 CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents(filename);
 CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
 CREATE INDEX IF NOT EXISTS idx_document_chunks_chunk_index ON document_chunks(chunk_index);
+
+-- 벡터 임베딩 인덱스 (유사도 검색 최적화)
+CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON document_chunks 
+USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);

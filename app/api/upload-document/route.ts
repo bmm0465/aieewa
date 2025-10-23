@@ -4,6 +4,7 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 const pdfParse = require('pdf-parse')
 import { getServerSupabaseClient } from '@/lib/supabase'
+import { processChunksWithEmbeddings } from '@/lib/embeddings'
 
 // 간단한 텍스트 스플리터 구현
 function splitText(text: string, chunkSize: number = 1000, chunkOverlap: number = 200): string[] {
@@ -62,10 +63,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 파일 크기 제한 (10MB)
-    if (file.size > 10 * 1024 * 1024) {
+    // Vercel 배포를 위한 파일 크기 제한 (4MB)
+    const maxFileSize = process.env.NODE_ENV === 'production' ? 4 * 1024 * 1024 : 10 * 1024 * 1024
+    if (file.size > maxFileSize) {
+      const maxSizeMB = process.env.NODE_ENV === 'production' ? 4 : 10
       return NextResponse.json(
-        { error: '파일 크기는 10MB를 초과할 수 없습니다.' },
+        { error: `파일 크기는 ${maxSizeMB}MB를 초과할 수 없습니다.` },
         { status: 400 }
       )
     }
@@ -149,26 +152,15 @@ export async function POST(request: NextRequest) {
       } else {
         console.log('문서 저장 성공:', docData.id)
         
-        // 청크들 배치 저장 (성능 개선)
-        const chunksToInsert = embeddings.map(embedding => ({
-          document_id: docData.id,
-          chunk_text: embedding.text,
-          chunk_index: embedding.metadata.chunkIndex,
+        // 청크들 벡터 임베딩과 함께 저장
+        const chunksWithMetadata = embeddings.map(embedding => ({
+          text: embedding.text,
           metadata: embedding.metadata,
+          chunkIndex: embedding.metadata.chunkIndex
         }))
 
-        // 배치로 저장 (큰 파일 처리 시 성능 향상)
-        const batchSize = 50
-        for (let i = 0; i < chunksToInsert.length; i += batchSize) {
-          const batch = chunksToInsert.slice(i, i + batchSize)
-          const { error: chunkError } = await supabase
-            .from('document_chunks')
-            .insert(batch)
-
-          if (chunkError) {
-            console.error(`청크 ${i}-${i + batchSize} 저장 오류:`, chunkError)
-          }
-        }
+        // 벡터 임베딩 생성 및 저장
+        await processChunksWithEmbeddings(chunksWithMetadata, docData.id)
         console.log('청크 저장 완료')
       }
     } catch (dbError) {

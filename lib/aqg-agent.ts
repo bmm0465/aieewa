@@ -5,6 +5,8 @@ import { Document } from '@langchain/core/documents'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from './types/aqg'
 import { getServerSupabaseClient } from './supabase'
+import { generateSingleEmbedding, searchSimilarVectors } from './embeddings'
+import { VercelOptimizedRAG } from './vercel-optimized-rag'
 
 // 환경 변수 설정
 if (typeof window === 'undefined') {
@@ -26,6 +28,7 @@ export class AQGAgent {
   private llmJudge: ChatOpenAI
   private retrieval?: any
   private parser: any
+  private optimizedRAG?: VercelOptimizedRAG
 
   constructor() {
     // 환경 변수 체크
@@ -53,124 +56,172 @@ export class AQGAgent {
     }
   }
 
-  // RAG 검색 초기화
+  // RAG 검색 초기화 (Vercel 최적화)
   async initializeRetrieval() {
-    this.retrieval = {
-      invoke: async (query: string) => {
-        try {
-          console.log('RAG 검색 시작:', query)
-          
-          // Supabase가 설정되어 있는지 확인
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-          const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-          
-          if (!supabaseUrl || !supabaseKey) {
-            console.log('Supabase 설정이 없어 기본 검색을 사용합니다.')
+    // Vercel 환경 감지
+    const isVercel = process.env.VERCEL === '1'
+    const isProduction = process.env.NODE_ENV === 'production'
+    
+    if (isVercel || isProduction) {
+      // Vercel 환경에서는 최적화된 RAG 사용
+      this.optimizedRAG = new VercelOptimizedRAG()
+      this.retrieval = {
+        invoke: async (query: string) => {
+          try {
+            console.log('Vercel 최적화 RAG 검색 시작:', query)
+            const results = await this.optimizedRAG!.search(query, 8)
+            
+            const docs = results.map(result => new Document({
+              pageContent: result.text,
+              metadata: {
+                ...result.metadata,
+                relevanceScore: result.relevanceScore,
+                searchType: result.searchType
+              }
+            }))
+            
+            console.log(`Vercel RAG 검색 완료: ${docs.length}개 문서`)
+            return docs
+          } catch (error) {
+            console.error('Vercel RAG 검색 오류:', error)
             return []
           }
-
-          const supabase = getServerSupabaseClient()
-          
-          // 하이브리드 검색: 키워드 검색 + 의미적 검색
-          const keywords = query.split(' ').filter(word => word.length > 1) // 1글자 이상 키워드 포함
-          
-          // 1. 키워드 기반 검색 (더 많은 결과 가져오기)
-          let keywordResults: any[] = []
-          if (keywords.length > 0) {
-            const keywordConditions = keywords.map(keyword => `chunk_text.ilike.%${keyword}%`).join(',')
-            const { data: keywordChunks, error: keywordError } = await supabase
-              .from('document_chunks')
-              .select('chunk_text, metadata')
-              .or(keywordConditions)
-              .limit(20) // 키워드 검색 결과 증가
-
-            if (!keywordError && keywordChunks) {
-              keywordResults = keywordChunks
-              console.log(`키워드 검색 결과: ${keywordResults.length}개 청크`)
+        }
+      }
+    } else {
+      // 로컬 환경에서는 기존 벡터 검색 사용
+      this.retrieval = {
+        invoke: async (query: string) => {
+          try {
+            console.log('로컬 벡터 RAG 검색 시작:', query)
+            
+            // Supabase가 설정되어 있는지 확인
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+            
+            if (!supabaseUrl || !supabaseKey) {
+              console.log('Supabase 설정이 없어 기본 검색을 사용합니다.')
+              return []
             }
-          }
 
-          // 2. 전체 텍스트 검색 (의미적 검색 대용)
-          const { data: textSearchResults, error: textError } = await supabase
-            .from('document_chunks')
-            .select('chunk_text, metadata')
-            .ilike('chunk_text', `%${query}%`)
-            .limit(15)
+            // 1. 벡터 검색 (의미적 유사도)
+            let vectorResults: any[] = []
+            try {
+              console.log('벡터 검색 시작...')
+              const queryEmbedding = await generateSingleEmbedding(query)
+              const vectorSearchResults = await searchSimilarVectors(queryEmbedding, 10, 0.7)
+              
+              vectorResults = vectorSearchResults.map(result => ({
+                chunk_text: result.chunk_text,
+                metadata: result.metadata,
+                score: result.similarity * 10, // 벡터 유사도를 10배 스케일링
+                searchType: 'vector'
+              }))
+              
+              console.log(`벡터 검색 결과: ${vectorResults.length}개 청크`)
+            } catch (vectorError) {
+              console.warn('벡터 검색 실패, 키워드 검색으로 대체:', vectorError)
+            }
 
-          let textResults: any[] = []
-          if (!textError && textSearchResults) {
-            textResults = textSearchResults
-            console.log(`텍스트 검색 결과: ${textResults.length}개 청크`)
-          }
-
-          // 3. 결과 병합 및 중복 제거
-          const allChunks = [...keywordResults, ...textResults]
-          const uniqueChunks = allChunks.filter((chunk, index, self) => 
-            index === self.findIndex(c => c.chunk_text === chunk.chunk_text)
-          )
-
-          console.log(`RAG 검색 총 결과: ${uniqueChunks.length}개 청크`)
-          
-          // 4. 관련성 점수 기반 정렬 (키워드 매칭 개수 기준)
-          const scoredChunks = uniqueChunks.map(chunk => {
-            const text = chunk.chunk_text.toLowerCase()
-            const queryLower = query.toLowerCase()
-            const keywordsLower = keywords.map(k => k.toLowerCase())
+            // 2. 키워드 검색 (백업)
+            const supabase = getServerSupabaseClient()
+            const keywords = query.split(' ').filter(word => word.length > 1)
             
-            let score = 0
-            
-            // 키워드 매칭 점수
-            keywordsLower.forEach(keyword => {
-              if (text.includes(keyword)) {
-                score += 2
-                // 연속된 키워드 매칭 추가 점수
-                if (queryLower.includes(keyword)) {
-                  score += 1
-                }
+            let keywordResults: any[] = []
+            if (keywords.length > 0) {
+              const keywordConditions = keywords.map(keyword => `chunk_text.ilike.%${keyword}%`).join(',')
+              const { data: keywordChunks, error: keywordError } = await supabase
+                .from('document_chunks')
+                .select('chunk_text, metadata')
+                .or(keywordConditions)
+                .limit(15)
+
+              if (!keywordError && keywordChunks) {
+                keywordResults = keywordChunks.map(chunk => ({
+                  ...chunk,
+                  score: this.calculateKeywordScore(chunk.chunk_text, query, keywords),
+                  searchType: 'keyword'
+                }))
+                console.log(`키워드 검색 결과: ${keywordResults.length}개 청크`)
               }
-            })
-            
-            // 전체 쿼리 매칭 점수
-            if (text.includes(queryLower)) {
-              score += 3
             }
-            
-            // 청크 길이에 따른 정규화 (너무 짧거나 긴 청크 불이익)
-            if (text.length < 50) score -= 1
-            if (text.length > 2000) score -= 1
-            
-            return { ...chunk, score }
-          })
 
-          // 점수 순으로 정렬하고 기본 PDF 우선순위 적용
-          const sortedChunks = scoredChunks
-            .sort((a, b) => {
-              // 기본 PDF 우선
-              const aIsDefault = a.metadata?.isDefault === true
-              const bIsDefault = b.metadata?.isDefault === true
-              
-              if (aIsDefault && !bIsDefault) return -1
-              if (!aIsDefault && bIsDefault) return 1
-              
-              // 점수 순 정렬
-              return b.score - a.score
-            })
-            .slice(0, 8) // 검색 결과 수 증가 (5개 → 8개)
-          
-          // Document 객체로 변환
-          const docs = sortedChunks.map(chunk => new Document({
-            pageContent: chunk.chunk_text,
-            metadata: { ...chunk.metadata, relevanceScore: chunk.score }
-          }))
+            // 3. 결과 병합 및 중복 제거
+            const allChunks = [...vectorResults, ...keywordResults]
+            const uniqueChunks = allChunks.filter((chunk, index, self) => 
+              index === self.findIndex(c => c.chunk_text === chunk.chunk_text)
+            )
 
-          console.log(`최종 반환: ${docs.length}개 문서 (점수: ${sortedChunks.map(c => c.score).join(', ')})`)
-          return docs
-        } catch (error) {
-          console.error('RAG 검색 실행 오류:', error)
-          return []
+            console.log(`RAG 검색 총 결과: ${uniqueChunks.length}개 청크`)
+            
+            // 4. 하이브리드 점수 기반 정렬
+            const scoredChunks = uniqueChunks
+              .sort((a, b) => {
+                // 기본 PDF 우선
+                const aIsDefault = a.metadata?.isDefault === true
+                const bIsDefault = b.metadata?.isDefault === true
+                
+                if (aIsDefault && !bIsDefault) return -1
+                if (!aIsDefault && bIsDefault) return 1
+                
+                // 벡터 검색 결과 우선
+                if (a.searchType === 'vector' && b.searchType === 'keyword') return -1
+                if (a.searchType === 'keyword' && b.searchType === 'vector') return 1
+                
+                // 점수 순 정렬
+                return b.score - a.score
+              })
+              .slice(0, 8) // 상위 8개 선택
+            
+            // Document 객체로 변환
+            const docs = scoredChunks.map(chunk => new Document({
+              pageContent: chunk.chunk_text,
+              metadata: { 
+                ...chunk.metadata, 
+                relevanceScore: chunk.score,
+                searchType: chunk.searchType
+              }
+            }))
+
+            console.log(`최종 반환: ${docs.length}개 문서 (벡터: ${vectorResults.length}, 키워드: ${keywordResults.length})`)
+            return docs
+          } catch (error) {
+            console.error('RAG 검색 실행 오류:', error)
+            return []
+          }
         }
       }
     }
+  }
+
+  // 키워드 점수 계산 헬퍼 메서드
+  private calculateKeywordScore(text: string, query: string, keywords: string[]): number {
+    const textLower = text.toLowerCase()
+    const queryLower = query.toLowerCase()
+    const keywordsLower = keywords.map(k => k.toLowerCase())
+    
+    let score = 0
+    
+    // 키워드 매칭 점수
+    keywordsLower.forEach(keyword => {
+      if (textLower.includes(keyword)) {
+        score += 2
+        if (queryLower.includes(keyword)) {
+          score += 1
+        }
+      }
+    })
+    
+    // 전체 쿼리 매칭 점수
+    if (textLower.includes(queryLower)) {
+      score += 3
+    }
+    
+    // 청크 길이 정규화
+    if (text.length < 50) score -= 1
+    if (text.length > 2000) score -= 1
+    
+    return score
   }
 
   // RAG 기반 프롬프트 설정
