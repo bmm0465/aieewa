@@ -204,6 +204,7 @@ export default function QuestionGenerator() {
       console.log('API 응답 상태:', response.status)
       const data = await response.json()
       console.log('API 응답 데이터:', data)
+      console.log('questionId:', data.questionId)
 
       if (!response.ok) {
         // 더 구체적인 에러 메시지 제공
@@ -225,6 +226,7 @@ export default function QuestionGenerator() {
       // API 응답 구조에 맞게 수정
       if (data.success && data.question) {
         setGeneratedQuestion(data.question)
+        setQuestionId(data.questionId) // questionId 설정 추가
         if (data.warning) {
           console.warn('데이터베이스 저장 경고:', data.warning)
         }
@@ -254,6 +256,7 @@ export default function QuestionGenerator() {
   }
 
   const handleDownloadPDF = async () => {
+    console.log('PDF 다운로드 시도, questionId:', questionId)
     if (!questionId) {
       setError('PDF를 다운로드할 문항이 없습니다.')
       return
