@@ -41,6 +41,14 @@ export class FaissVectorStore {
       // 실제로는 pickle 파싱이 필요하지만, 여기서는 더미 데이터 사용
       this.documents = [
         {
+          text: "5학년 Lesson 9 'My Favorite Subject Is Science' 단원에서는 좋아하는 과목에 대해 묻고 답하는 표현을 학습합니다. 'What's your favorite subject?', 'My favorite subject is science.' 등의 문장을 사용하여 과학, 수학, 영어, 미술, 음악, 체육 등 다양한 과목의 이름을 익힙니다.",
+          metadata: { source: "5학년_영어교과서", unit: "Lesson 9", grade: "5학년" }
+        },
+        {
+          text: "과학을 좋아하는 이유를 설명하는 방법을 배웁니다. 'I like science because it's interesting.', 'Science is fun because we can do experiments.' 등의 문장을 사용하여 자신의 생각을 영어로 표현하는 연습을 합니다.",
+          metadata: { source: "5학년_영어교과서", unit: "Lesson 9", grade: "5학년" }
+        },
+        {
           text: "5학년 Lesson 10 'What a Nice House!' 단원에서는 집과 관련된 어휘를 학습합니다. bedroom, kitchen, living room, bathroom 등의 방 이름과 각 방에서 할 수 있는 활동을 배웁니다.",
           metadata: { source: "5학년_영어교과서", unit: "Lesson 10", grade: "5학년" }
         },
@@ -132,17 +140,23 @@ export class FaissVectorStore {
     }
     
     // Lesson 매칭 점수
+    if (query.includes('Lesson 9') && textLower.includes('lesson 9')) {
+      score += 5
+    }
     if (query.includes('Lesson 10') && textLower.includes('lesson 10')) {
       score += 5
     }
     if (query.includes('Lesson 11') && textLower.includes('lesson 11')) {
       score += 5
     }
-    if (query.includes('Lesson 9') && textLower.includes('lesson 9')) {
-      score += 5
-    }
     
     // 특정 주제 매칭 점수
+    if (query.includes('My Favorite Subject Is Science') && textLower.includes('과학')) {
+      score += 8
+    }
+    if (query.includes('Science') && textLower.includes('과학')) {
+      score += 6
+    }
     if (query.includes('Movie Director') && textLower.includes('영화 감독')) {
       score += 8
     }

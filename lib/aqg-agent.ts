@@ -322,7 +322,7 @@ You can play Please come 1
     const score = parseInt(result.match(/\d+/)?.[0] || "1")
     console.log(`Request-Context Relevance Score: ${score}`)
     
-    return score >= 3 ? "relevant" : "not relevant"
+    return score >= 2 ? "relevant" : "not relevant"
   }
 
   // 답안 생성
