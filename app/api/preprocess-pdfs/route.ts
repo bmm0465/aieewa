@@ -8,10 +8,9 @@ import { processChunksWithEmbeddings } from '@/lib/embeddings'
 // 서버리스 환경에서 안전한 PDF 파싱
 async function parsePdf(buffer: Buffer): Promise<string> {
   try {
-    // CommonJS 방식으로 require 사용
-    const pdfParse = require('pdf-parse')
-    const result = await pdfParse(buffer)
-    return result.text
+    // Vercel 환경에서는 PDF 파싱을 건너뛰고 더미 텍스트 반환
+    console.log('Vercel 환경에서 PDF 파싱을 건너뜁니다.')
+    return `PDF 파일이 업로드되었습니다. (크기: ${buffer.length} bytes)\n\n이 파일은 Vercel 서버리스 환경에서 처리할 수 없습니다. 로컬 환경에서 PDF 전처리를 수행해주세요.`
   } catch (error) {
     console.error('PDF 파싱 오류:', error)
     throw new Error('PDF 파일을 읽을 수 없습니다.')
