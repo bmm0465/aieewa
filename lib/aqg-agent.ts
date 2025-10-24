@@ -5,9 +5,7 @@ import { Document } from '@langchain/core/documents'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from './types/aqg'
 import { getServerSupabaseClient } from './supabase'
-import { generateSingleEmbedding, searchSimilarVectors } from './embeddings'
 import { VercelOptimizedRAG } from './vercel-optimized-rag'
-import { LocalVectorStore } from './local-vector-store'
 
 // 환경 변수 설정
 if (typeof window === 'undefined') {
@@ -30,7 +28,6 @@ export class AQGAgent {
   private retrieval?: any
   private parser: any
   private optimizedRAG?: VercelOptimizedRAG
-  private localVectorStore?: LocalVectorStore
 
   constructor() {
     // 환경 변수 체크
@@ -82,95 +79,6 @@ export class AQGAgent {
         } catch (error) {
           console.error('Vercel RAG 검색 오류:', error)
           return []
-        }
-      }
-    }
-
-            // 1. 벡터 검색 (의미적 유사도)
-            let vectorResults: any[] = []
-            try {
-              console.log('벡터 검색 시작...')
-              const queryEmbedding = await generateSingleEmbedding(query)
-              const vectorSearchResults = await searchSimilarVectors(queryEmbedding, 10, 0.7)
-              
-              vectorResults = vectorSearchResults.map(result => ({
-                chunk_text: result.chunk_text,
-                metadata: result.metadata,
-                score: result.similarity * 10, // 벡터 유사도를 10배 스케일링
-                searchType: 'vector'
-              }))
-              
-              console.log(`벡터 검색 결과: ${vectorResults.length}개 청크`)
-            } catch (vectorError) {
-              console.warn('벡터 검색 실패, 키워드 검색으로 대체:', vectorError)
-            }
-
-            // 2. 키워드 검색 (백업)
-            const supabase = getServerSupabaseClient()
-            const keywords = query.split(' ').filter(word => word.length > 1)
-            
-            let keywordResults: any[] = []
-            if (keywords.length > 0) {
-              const keywordConditions = keywords.map(keyword => `chunk_text.ilike.%${keyword}%`).join(',')
-              const { data: keywordChunks, error: keywordError } = await supabase
-                .from('document_chunks')
-                .select('chunk_text, metadata')
-                .or(keywordConditions)
-                .limit(15)
-
-              if (!keywordError && keywordChunks) {
-                keywordResults = keywordChunks.map(chunk => ({
-                  ...chunk,
-                  score: this.calculateKeywordScore(chunk.chunk_text, query, keywords),
-                  searchType: 'keyword'
-                }))
-                console.log(`키워드 검색 결과: ${keywordResults.length}개 청크`)
-              }
-            }
-
-            // 3. 결과 병합 및 중복 제거
-            const allChunks = [...vectorResults, ...keywordResults]
-            const uniqueChunks = allChunks.filter((chunk, index, self) => 
-              index === self.findIndex(c => c.chunk_text === chunk.chunk_text)
-            )
-
-            console.log(`RAG 검색 총 결과: ${uniqueChunks.length}개 청크`)
-            
-            // 4. 하이브리드 점수 기반 정렬
-            const scoredChunks = uniqueChunks
-              .sort((a, b) => {
-                // 기본 PDF 우선
-                const aIsDefault = a.metadata?.isDefault === true
-                const bIsDefault = b.metadata?.isDefault === true
-                
-                if (aIsDefault && !bIsDefault) return -1
-                if (!aIsDefault && bIsDefault) return 1
-                
-                // 벡터 검색 결과 우선
-                if (a.searchType === 'vector' && b.searchType === 'keyword') return -1
-                if (a.searchType === 'keyword' && b.searchType === 'vector') return 1
-                
-                // 점수 순 정렬
-                return b.score - a.score
-              })
-              .slice(0, 8) // 상위 8개 선택
-            
-            // Document 객체로 변환
-            const docs = scoredChunks.map(chunk => new Document({
-              pageContent: chunk.chunk_text,
-              metadata: { 
-                ...chunk.metadata, 
-                relevanceScore: chunk.score,
-                searchType: chunk.searchType
-              }
-            }))
-
-            console.log(`최종 반환: ${docs.length}개 문서 (벡터: ${vectorResults.length}, 키워드: ${keywordResults.length})`)
-            return docs
-          } catch (error) {
-            console.error('RAG 검색 실행 오류:', error)
-            return []
-          }
         }
       }
     }

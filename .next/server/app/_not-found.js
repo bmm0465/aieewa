@@ -1,0 +1,29 @@
+(()=>{var e={};e.id=165,e.ids=[165],e.modules={7849:e=>{"use strict";e.exports=require("next/dist/client/components/action-async-storage.external")},5403:e=>{"use strict";e.exports=require("next/dist/client/components/request-async-storage.external")},4749:e=>{"use strict";e.exports=require("next/dist/client/components/static-generation-async-storage.external")},399:e=>{"use strict";e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},5528:e=>{"use strict";e.exports=require("next/dist\\client\\components\\action-async-storage.external.js")},1877:e=>{"use strict";e.exports=require("next/dist\\client\\components\\request-async-storage.external.js")},5319:e=>{"use strict";e.exports=require("next/dist\\client\\components\\static-generation-async-storage.external.js")},4970:(e,t,r)=>{"use strict";r.r(t),r.d(t,{GlobalError:()=>a.a,__next_app__:()=>u,originalPathname:()=>m,pages:()=>c,routeModule:()=>p,tree:()=>d});var s=r(482),n=r(9108),o=r(2563),a=r.n(o),i=r(8300),l={};for(let e in i)0>["default","tree","pages","GlobalError","originalPathname","__next_app__","routeModule"].indexOf(e)&&(l[e]=()=>i[e]);r.d(t,l);let d=["",{children:["__PAGE__",{},{page:[()=>Promise.resolve().then(r.bind(r,1429)),"C:\\Users\\김민제\\Documents\\Dev\\aieewa\\app\\not-found.tsx"]}]},{layout:[()=>Promise.resolve().then(r.bind(r,2917)),"C:\\Users\\김민제\\Documents\\Dev\\aieewa\\app\\layout.tsx"],error:[()=>Promise.resolve().then(r.bind(r,429)),"C:\\Users\\김민제\\Documents\\Dev\\aieewa\\app\\error.tsx"],"not-found":[()=>Promise.resolve().then(r.bind(r,1429)),"C:\\Users\\김민제\\Documents\\Dev\\aieewa\\app\\not-found.tsx"]}],c=[],m="/_not-found",u={require:r,loadChunk:()=>Promise.resolve()},p=new s.AppPageRouteModule({definition:{kind:n.x.APP_PAGE,page:"/_not-found",pathname:"/_not-found",bundlePath:"",filename:"",appPaths:[]},userland:{loaderTree:d}})},5329:(e,t,r)=>{Promise.resolve().then(r.bind(r,748))},79:(e,t,r)=>{Promise.resolve().then(r.t.bind(r,2583,23)),Promise.resolve().then(r.t.bind(r,6840,23)),Promise.resolve().then(r.t.bind(r,8771,23)),Promise.resolve().then(r.t.bind(r,3225,23)),Promise.resolve().then(r.t.bind(r,9295,23)),Promise.resolve().then(r.t.bind(r,3982,23))},5989:(e,t,r)=>{Promise.resolve().then(r.t.bind(r,1476,23))},5303:()=>{},748:(e,t,r)=>{"use strict";r.r(t),r.d(t,{default:()=>o});var s=r(5344),n=r(3729);function o({error:e,reset:t}){return(0,n.useEffect)(()=>{console.error(e)},[e]),s.jsx("div",{className:"min-h-screen bg-gray-50 flex items-center justify-center",children:(0,s.jsxs)("div",{className:"text-center",children:[s.jsx("h2",{className:"text-2xl font-bold text-gray-900 mb-4",children:"문제가 발생했습니다"}),s.jsx("p",{className:"text-gray-600 mb-6",children:"페이지를 로드하는 중 오류가 발생했습니다."}),s.jsx("button",{onClick:()=>t(),className:"bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors",children:"다시 시도"})]})})}},429:(e,t,r)=>{"use strict";r.r(t),r.d(t,{$$typeof:()=>o,__esModule:()=>n,default:()=>a});let s=(0,r(6843).createProxy)(String.raw`C:\Users\김민제\Documents\Dev\aieewa\app\error.tsx`),{__esModule:n,$$typeof:o}=s,a=s.default},2917:(e,t,r)=>{"use strict";r.r(t),r.d(t,{default:()=>a,metadata:()=>n,viewport:()=>o});var s=r(5036);let n={title:"AIEEWA - 초등 영어 서술형 평가 시스템",description:"LLM 기반 초등 영어 서술형 평가 문항 생성 및 자동 채점 시스템",keywords:["AI","교육","영어","서술형","평가","LLM","GPT"],authors:[{name:"AIEEWA Team"}],creator:"AIEEWA",publisher:"AIEEWA",formatDetection:{email:!1,address:!1,telephone:!1},icons:{icon:"/favicon.ico",shortcut:"/favicon.ico",apple:"/favicon.ico"}},o={width:"device-width",initialScale:1};function a({children:e}){return(0,s.jsxs)("html",{lang:"ko",children:[s.jsx("head",{children:s.jsx("style",{dangerouslySetInnerHTML:{__html:`
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            
+            @media (hover: hover) {
+              .feature-card:hover {
+                transform: translateY(-8px) !important;
+                box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15), 0 8px 16px -4px rgba(0, 0, 0, 0.1) !important;
+              }
+            }
+            
+            @media (max-width: 768px) {
+              .feature-card {
+                margin: 0.5rem;
+                padding: 1.5rem !important;
+              }
+              
+              h1 {
+                font-size: 2.5rem !important;
+              }
+              
+              .container-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+              }
+            }
+          `}})}),s.jsx("body",{style:{margin:0,padding:0,fontFamily:"system-ui, sans-serif",minHeight:"100vh",backgroundColor:"#f9fafb"},children:e})]})}},1429:(e,t,r)=>{"use strict";r.r(t),r.d(t,{default:()=>a});var s=r(5036),n=r(646),o=r.n(n);function a(){return s.jsx("div",{className:"min-h-screen bg-gray-50 flex items-center justify-center",children:(0,s.jsxs)("div",{className:"text-center",children:[s.jsx("h2",{className:"text-2xl font-bold text-gray-900 mb-4",children:"404 - 페이지를 찾을 수 없습니다"}),s.jsx("p",{className:"text-gray-600 mb-6",children:"요청하신 페이지가 존재하지 않습니다."}),s.jsx(o(),{href:"/",className:"bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors",children:"홈으로 돌아가기"})]})})}}};var t=require("../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),s=t.X(0,[638,0],()=>r(4970));module.exports=s})();
