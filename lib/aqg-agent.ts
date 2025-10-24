@@ -549,7 +549,7 @@ ${state.context || "검색된 문서가 없습니다."}
       
       let state: GraphStateAQG = { request, context: "" }
       let retryCount = 0
-      const maxRetries = 2 // 재시도 횟수 줄임
+      const maxRetries = 1 // 재시도 횟수를 1로 제한
 
       while (retryCount < maxRetries) {
         try {

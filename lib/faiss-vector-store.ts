@@ -49,6 +49,14 @@ export class FaissVectorStore {
           metadata: { source: "5학년_영어교과서", unit: "Lesson 10", grade: "5학년" }
         },
         {
+          text: "5학년 Lesson 11 'I Want to Be a Movie Director' 단원에서는 직업과 꿈에 대한 내용을 학습합니다. 영화 감독의 역할과 책임, 다양한 직업에 대한 이해, 자신의 꿈과 목표를 영어로 표현하는 방법을 배웁니다.",
+          metadata: { source: "5학년_영어교과서", unit: "Lesson 11", grade: "5학년" }
+        },
+        {
+          text: "영화 감독이 하는 일에 대해 배웁니다. 영화 제작 과정에서 감독의 역할, 스토리텔링, 연출, 팀 관리 등의 책임을 이해하고, 자신의 꿈을 영어로 표현하는 방법을 연습합니다.",
+          metadata: { source: "5학년_영어교과서", unit: "Lesson 11", grade: "5학년" }
+        },
+        {
           text: "6학년 Lesson 9 'What Do You Think?' 단원에서는 의견을 표현하는 방법을 학습합니다. 'I think...', 'In my opinion...', 'I believe...' 등의 표현을 사용합니다.",
           metadata: { source: "6학년_영어교과서", unit: "Lesson 9", grade: "6학년" }
         },
@@ -115,15 +123,40 @@ export class FaissVectorStore {
       score += 5
     }
     
-    // 학년/단원 매칭 점수
+    // 학년/단원 매칭 점수 (더 정확한 매칭)
     if (query.includes('5학년') && textLower.includes('5학년')) {
-      score += 3
+      score += 5
     }
     if (query.includes('6학년') && textLower.includes('6학년')) {
-      score += 3
+      score += 5
     }
+    
+    // Lesson 매칭 점수
     if (query.includes('Lesson 10') && textLower.includes('lesson 10')) {
-      score += 3
+      score += 5
+    }
+    if (query.includes('Lesson 11') && textLower.includes('lesson 11')) {
+      score += 5
+    }
+    if (query.includes('Lesson 9') && textLower.includes('lesson 9')) {
+      score += 5
+    }
+    
+    // 특정 주제 매칭 점수
+    if (query.includes('Movie Director') && textLower.includes('영화 감독')) {
+      score += 8
+    }
+    if (query.includes('Nice House') && textLower.includes('집')) {
+      score += 8
+    }
+    if (query.includes('What Do You Think') && textLower.includes('의견')) {
+      score += 8
+    }
+    if (query.includes('Who Wrote the Book') && textLower.includes('책')) {
+      score += 8
+    }
+    if (query.includes('Save the Earth') && textLower.includes('환경')) {
+      score += 8
     }
     
     return score
