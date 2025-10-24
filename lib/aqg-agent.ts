@@ -6,6 +6,7 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from './types/aqg'
 import { getServerSupabaseClient } from './supabase'
 import { VercelOptimizedRAG } from './vercel-optimized-rag'
+import { FaissVectorStore } from './faiss-vector-store'
 
 // 환경 변수 설정
 if (typeof window === 'undefined') {
@@ -28,6 +29,7 @@ export class AQGAgent {
   private retrieval?: any
   private parser: any
   private optimizedRAG?: VercelOptimizedRAG
+  private faissVectorStore?: FaissVectorStore
 
   constructor() {
     // 환경 변수 체크
@@ -55,32 +57,67 @@ export class AQGAgent {
     }
   }
 
-  // RAG 검색 초기화 (Vercel 최적화)
+  // RAG 검색 초기화 (기존 벡터 스토어 우선 사용)
   async initializeRetrieval() {
-    // Vercel 환경에서는 항상 최적화된 RAG 사용
-    this.optimizedRAG = new VercelOptimizedRAG()
-    this.retrieval = {
-      invoke: async (query: string) => {
-        try {
-          console.log('Vercel 최적화 RAG 검색 시작:', query)
-          const results = await this.optimizedRAG!.search(query, 8)
-          
-          const docs = results.map(result => new Document({
-            pageContent: result.text,
-            metadata: {
-              ...result.metadata,
-              relevanceScore: result.relevanceScore,
-              searchType: result.searchType
-            }
-          }))
-          
-          console.log(`Vercel RAG 검색 완료: ${docs.length}개 문서`)
-          return docs
-        } catch (error) {
-          console.error('Vercel RAG 검색 오류:', error)
-          return []
+    try {
+      // 기존 벡터 스토어 사용 시도
+      this.faissVectorStore = new FaissVectorStore()
+      this.retrieval = {
+        invoke: async (query: string) => {
+          try {
+            console.log('기존 벡터 스토어 RAG 검색 시작:', query)
+            const results = await this.faissVectorStore!.search(query, 8)
+            
+            const docs = results.map(result => new Document({
+              pageContent: result.text,
+              metadata: {
+                ...result.metadata,
+                relevanceScore: result.relevanceScore,
+                searchType: result.searchType
+              }
+            }))
+            
+            console.log(`기존 벡터 스토어 RAG 검색 완료: ${docs.length}개 문서`)
+            return docs
+          } catch (error) {
+            console.error('기존 벡터 스토어 RAG 검색 오류:', error)
+            // 폴백: Vercel 최적화 RAG 사용
+            return await this.fallbackVercelRAG(query)
+          }
         }
       }
+    } catch (error) {
+      console.error('기존 벡터 스토어 초기화 실패, Vercel RAG 사용:', error)
+      // 폴백: Vercel 최적화 RAG 사용
+      this.optimizedRAG = new VercelOptimizedRAG()
+      this.retrieval = {
+        invoke: async (query: string) => {
+          return await this.fallbackVercelRAG(query)
+        }
+      }
+    }
+  }
+
+  // Vercel RAG 폴백 함수
+  async fallbackVercelRAG(query: string) {
+    try {
+      console.log('Vercel 최적화 RAG 검색 시작:', query)
+      const results = await this.optimizedRAG!.search(query, 8)
+      
+      const docs = results.map(result => new Document({
+        pageContent: result.text,
+        metadata: {
+          ...result.metadata,
+          relevanceScore: result.relevanceScore,
+          searchType: result.searchType
+        }
+      }))
+      
+      console.log(`Vercel RAG 검색 완료: ${docs.length}개 문서`)
+      return docs
+    } catch (error) {
+      console.error('Vercel RAG 검색 오류:', error)
+      return []
     }
   }
 
