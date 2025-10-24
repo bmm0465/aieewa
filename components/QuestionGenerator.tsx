@@ -46,6 +46,8 @@ export default function QuestionGenerator() {
   const [isUploading, setIsUploading] = useState(false)
   const [selectedGrade, setSelectedGrade] = useState<string>('')
   const [selectedLesson, setSelectedLesson] = useState<string>('')
+  const [questionId, setQuestionId] = useState<string | null>(null)
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [defaultPdfStatus, setDefaultPdfStatus] = useState<{
     totalDocuments: number
     totalChunks: number
@@ -251,14 +253,69 @@ export default function QuestionGenerator() {
     }
   }
 
+  const handleDownloadPDF = async () => {
+    if (!questionId) {
+      setError('PDF를 다운로드할 문항이 없습니다.')
+      return
+    }
+
+    setIsGeneratingPdf(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ questionId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'PDF 생성에 실패했습니다.')
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.html) {
+        // 새 창에서 PDF HTML 열기
+        const newWindow = window.open('', '_blank')
+        if (newWindow) {
+          newWindow.document.write(data.html)
+          newWindow.document.close()
+          
+          // 인쇄 대화상자 열기 (PDF로 저장 가능)
+          setTimeout(() => {
+            newWindow.print()
+          }, 500)
+        }
+      } else {
+        throw new Error('PDF 생성에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('PDF 다운로드 오류:', error)
+      setError(error instanceof Error ? error.message : 'PDF 다운로드 중 오류가 발생했습니다.')
+    } finally {
+      setIsGeneratingPdf(false)
+    }
+  }
+
   return (
-    <div style={{ 
-      maxWidth: '1200px', 
-      margin: '0 auto', 
-      padding: '2rem',
-      backgroundColor: '#f8fafc',
-      minHeight: '100vh'
-    }}>
+    <>
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+      <div style={{ 
+        maxWidth: '1200px', 
+        margin: '0 auto', 
+        padding: '2rem',
+        backgroundColor: '#f8fafc',
+        minHeight: '100vh'
+      }}>
       {/* 헤더 */}
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ 
@@ -715,20 +772,77 @@ export default function QuestionGenerator() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.75rem',
+              justifyContent: 'space-between',
               marginBottom: '1.5rem',
               paddingBottom: '1rem',
               borderBottom: '2px solid #e5e7eb'
             }}>
-              <div style={{ fontSize: '1.5rem' }}>📋</div>
-              <h2 style={{ 
-                fontSize: '1.5rem', 
-                fontWeight: '700', 
-                color: '#1e293b',
-                margin: 0
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem'
               }}>
-                생성된 평가 문항
-              </h2>
+                <div style={{ fontSize: '1.5rem' }}>📋</div>
+                <h2 style={{ 
+                  fontSize: '1.5rem', 
+                  fontWeight: '700', 
+                  color: '#1e293b',
+                  margin: 0
+                }}>
+                  생성된 평가 문항
+                </h2>
+              </div>
+              
+              {/* PDF 다운로드 버튼 */}
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPdf}
+                style={{
+                  backgroundColor: isGeneratingPdf ? '#9ca3af' : '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: isGeneratingPdf ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }}
+                onMouseOver={(e) => {
+                  if (!isGeneratingPdf) {
+                    e.currentTarget.style.backgroundColor = '#b91c1c'
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (!isGeneratingPdf) {
+                    e.currentTarget.style.backgroundColor = '#dc2626'
+                    e.currentTarget.style.transform = 'translateY(0)'
+                  }
+                }}
+              >
+                {isGeneratingPdf ? (
+                  <>
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid #ffffff',
+                      borderTop: '2px solid transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                    PDF 생성 중...
+                  </>
+                ) : (
+                  <>
+                    📄 PDF 다운로드
+                  </>
+                )}
+              </button>
             </div>
             
             <div style={{ marginBottom: '1rem' }}>
@@ -1262,6 +1376,7 @@ export default function QuestionGenerator() {
         </div>
       )}
 
-    </div>
+      </div>
+    </>
   )
 }
