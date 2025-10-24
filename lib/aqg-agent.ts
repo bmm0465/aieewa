@@ -84,39 +84,6 @@ export class AQGAgent {
     }
   }
 
-  // Supabase 폴백 검색 함수
-  async fallbackSupabaseSearch(query: string) {
-    try {
-      console.log('Supabase 폴백 검색 시작:', query)
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseKey) {
-        console.log('Supabase 설정이 없어 빈 결과를 반환합니다.')
-        return []
-      }
-
-      // 벡터 검색 시도
-      const queryEmbedding = await generateSingleEmbedding(query)
-      const results = await searchSimilarVectors(queryEmbedding, 8, 0.7)
-      
-      const docs = results.map(result => new Document({
-        pageContent: result.chunk_text,
-        metadata: {
-          ...result.metadata,
-          relevanceScore: result.similarity * 10,
-          searchType: 'vector'
-        }
-      }))
-      
-      console.log(`Supabase 폴백 검색 완료: ${docs.length}개 문서`)
-      return docs
-    } catch (error) {
-      console.error('Supabase 폴백 검색 오류:', error)
-      return []
-    }
-  }
 
   // 키워드 점수 계산 헬퍼 메서드
   private calculateKeywordScore(text: string, query: string, keywords: string[]): number {

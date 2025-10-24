@@ -22,19 +22,19 @@
       "static/chunks/main-app-331e1fdb4777df48.js",
       "static/chunks/app/error-0d337f11ee7710a0.js"
     ],
-    "/evaluate/page": [
-      "static/chunks/webpack-bf1a64d1eafd2816.js",
-      "static/chunks/fd9d1056-88acd27bac859e5d.js",
-      "static/chunks/938-6eae3a4d4a531ea2.js",
-      "static/chunks/main-app-331e1fdb4777df48.js",
-      "static/chunks/app/evaluate/page-dbf713f720fec665.js"
-    ],
     "/generate/page": [
       "static/chunks/webpack-bf1a64d1eafd2816.js",
       "static/chunks/fd9d1056-88acd27bac859e5d.js",
       "static/chunks/938-6eae3a4d4a531ea2.js",
       "static/chunks/main-app-331e1fdb4777df48.js",
       "static/chunks/app/generate/page-ff2aa0d58940ac6b.js"
+    ],
+    "/evaluate/page": [
+      "static/chunks/webpack-bf1a64d1eafd2816.js",
+      "static/chunks/fd9d1056-88acd27bac859e5d.js",
+      "static/chunks/938-6eae3a4d4a531ea2.js",
+      "static/chunks/main-app-331e1fdb4777df48.js",
+      "static/chunks/app/evaluate/page-dbf713f720fec665.js"
     ],
     "/page": [
       "static/chunks/webpack-bf1a64d1eafd2816.js",
