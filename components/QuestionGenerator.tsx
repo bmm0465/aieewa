@@ -23,6 +23,20 @@ interface GeneratedQuestion {
   성취수준별_평가에_따른_예시_피드백_C: string
 }
 
+// 학년별 단원 데이터
+const GRADE_LESSONS = {
+  '5학년': [
+    { value: 'lesson9', label: 'Lesson 9. My Favorite Subject Is Science' },
+    { value: 'lesson10', label: 'Lesson 10. What a Nice House!' },
+    { value: 'lesson11', label: 'Lesson 11. I Want to Be a Movie Director' }
+  ],
+  '6학년': [
+    { value: 'lesson9', label: 'Lesson 9. What Do You Think?' },
+    { value: 'lesson10', label: 'Lesson 10. Who Wrote the Book?' },
+    { value: 'lesson11', label: 'Lesson 11. We Should Save the Earth' }
+  ]
+}
+
 export default function QuestionGenerator() {
   const [request, setRequest] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -30,12 +44,37 @@ export default function QuestionGenerator() {
   const [error, setError] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [selectedGrade, setSelectedGrade] = useState<string>('')
+  const [selectedLesson, setSelectedLesson] = useState<string>('')
   const [defaultPdfStatus, setDefaultPdfStatus] = useState<{
     totalDocuments: number
     totalChunks: number
     documents: Array<{filename: string, chunk_count: number}>
   } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 학년 선택 핸들러
+  const handleGradeChange = (grade: string) => {
+    setSelectedGrade(grade)
+    setSelectedLesson('') // 단원 초기화
+  }
+
+  // 단원 선택 핸들러
+  const handleLessonChange = (lesson: string) => {
+    setSelectedLesson(lesson)
+  }
+
+  // 선택된 단원 정보를 기반으로 요청 생성
+  const generateRequestFromLesson = () => {
+    if (!selectedGrade || !selectedLesson) return ''
+    
+    const lessonInfo = GRADE_LESSONS[selectedGrade as keyof typeof GRADE_LESSONS]
+      .find(lesson => lesson.value === selectedLesson)
+    
+    if (!lessonInfo) return ''
+    
+    return `${selectedGrade} ${lessonInfo.label} 단원에 대한 서술형 평가 문항을 생성해주세요. 이 단원의 핵심 학습 내용을 바탕으로 학생들의 이해도와 표현력을 평가할 수 있는 문항을 만들어주세요.`
+  }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -153,7 +192,11 @@ export default function QuestionGenerator() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ request }),
+        body: JSON.stringify({ 
+          request,
+          selectedGrade,
+          selectedLesson
+        }),
       })
 
       console.log('API 응답 상태:', response.status)
@@ -258,6 +301,125 @@ export default function QuestionGenerator() {
         border: '1px solid #e2e8f0',
         marginBottom: '2rem'
       }}>
+        {/* 학년 및 단원 선택 */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ 
+            fontSize: '1.25rem', 
+            fontWeight: '600', 
+            color: '#1e293b',
+            marginBottom: '1rem'
+          }}>
+            📚 학년 및 단원 선택
+          </h3>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '1rem',
+            marginBottom: '1rem'
+          }}>
+            {/* 학년 선택 */}
+            <div>
+              <label style={{ 
+                display: 'block', 
+                fontSize: '0.875rem', 
+                fontWeight: '500', 
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                학년 선택
+              </label>
+              <select
+                value={selectedGrade}
+                onChange={(e) => handleGradeChange(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  backgroundColor: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">학년을 선택하세요</option>
+                <option value="5학년">5학년</option>
+                <option value="6학년">6학년</option>
+              </select>
+            </div>
+
+            {/* 단원 선택 */}
+            <div>
+              <label style={{ 
+                display: 'block', 
+                fontSize: '0.875rem', 
+                fontWeight: '500', 
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                단원 선택
+              </label>
+              <select
+                value={selectedLesson}
+                onChange={(e) => handleLessonChange(e.target.value)}
+                disabled={!selectedGrade}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  backgroundColor: selectedGrade ? 'white' : '#f9fafb',
+                  cursor: selectedGrade ? 'pointer' : 'not-allowed',
+                  opacity: selectedGrade ? 1 : 0.6
+                }}
+              >
+                <option value="">단원을 선택하세요</option>
+                {selectedGrade && GRADE_LESSONS[selectedGrade as keyof typeof GRADE_LESSONS]?.map((lesson) => (
+                  <option key={lesson.value} value={lesson.value}>
+                    {lesson.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 선택된 단원으로 자동 요청 생성 버튼 */}
+          {selectedGrade && selectedLesson && (
+            <div style={{ 
+              padding: '1rem',
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #0ea5e9',
+              borderRadius: '0.5rem',
+              marginBottom: '1rem'
+            }}>
+              <p style={{ 
+                fontSize: '0.875rem', 
+                color: '#0369a1',
+                margin: '0 0 0.5rem 0'
+              }}>
+                선택된 단원: <strong>{selectedGrade} {GRADE_LESSONS[selectedGrade as keyof typeof GRADE_LESSONS]?.find(l => l.value === selectedLesson)?.label}</strong>
+              </p>
+              <button
+                onClick={() => setRequest(generateRequestFromLesson())}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#0ea5e9',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0284c7'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0ea5e9'}
+              >
+                이 단원으로 문항 생성하기
+              </button>
+            </div>
+          )}
+        </div>
         {/* 기본 PDF 상태 섹션 */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ 

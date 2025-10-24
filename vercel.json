@@ -8,6 +8,9 @@
     "app/api/**": {
       "maxDuration": 60
     },
+    "app/api/generate-question/route.ts": {
+      "maxDuration": 120
+    },
     "app/api/preprocess-pdfs/route.ts": {
       "maxDuration": 300
     },

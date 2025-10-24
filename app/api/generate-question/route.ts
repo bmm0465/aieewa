@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('요청 본문:', body)
     
-    const { request: questionRequest } = body
+    const { request: questionRequest, selectedGrade, selectedLesson } = body
 
     if (!questionRequest) {
       console.error('요청 파라미터 누락:', body)
@@ -21,6 +21,13 @@ export async function POST(request: NextRequest) {
         { error: '요청(request)이 필요합니다.' },
         { status: 400 }
       )
+    }
+
+    // 단원 정보가 있으면 요청에 추가 컨텍스트 제공
+    let enhancedRequest = questionRequest
+    if (selectedGrade && selectedLesson) {
+      console.log('단원 정보 추가:', { selectedGrade, selectedLesson })
+      enhancedRequest = `${questionRequest}\n\n[단원 정보]\n- 학년: ${selectedGrade}\n- 단원: ${selectedLesson}\n\n이 단원의 학습 목표와 핵심 내용을 고려하여 적절한 난이도의 서술형 평가 문항을 생성해주세요.`
     }
 
     // 환경 변수 확인
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
     
     let result
     try {
-      result = await aqgAgent.run(questionRequest)
+      result = await aqgAgent.run(enhancedRequest)
       console.log('AQG 에이전트 실행 완료:', !!result)
     } catch (runError) {
       console.error('AQG 에이전트 실행 실패:', runError)

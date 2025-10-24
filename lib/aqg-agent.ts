@@ -7,6 +7,7 @@ import { AQG, AQGSchema, GraphStateAQG, JudgeContext, JudgeHallucinations } from
 import { getServerSupabaseClient } from './supabase'
 import { generateSingleEmbedding, searchSimilarVectors } from './embeddings'
 import { VercelOptimizedRAG } from './vercel-optimized-rag'
+import { LocalVectorStore } from './local-vector-store'
 
 // 환경 변수 설정
 if (typeof window === 'undefined') {
@@ -29,6 +30,7 @@ export class AQGAgent {
   private retrieval?: any
   private parser: any
   private optimizedRAG?: VercelOptimizedRAG
+  private localVectorStore?: LocalVectorStore
 
   constructor() {
     // 환경 변수 체크
@@ -58,51 +60,31 @@ export class AQGAgent {
 
   // RAG 검색 초기화 (Vercel 최적화)
   async initializeRetrieval() {
-    // Vercel 환경 감지
-    const isVercel = process.env.VERCEL === '1'
-    const isProduction = process.env.NODE_ENV === 'production'
-    
-    if (isVercel || isProduction) {
-      // Vercel 환경에서는 최적화된 RAG 사용
-      this.optimizedRAG = new VercelOptimizedRAG()
-      this.retrieval = {
-        invoke: async (query: string) => {
-          try {
-            console.log('Vercel 최적화 RAG 검색 시작:', query)
-            const results = await this.optimizedRAG!.search(query, 8)
-            
-            const docs = results.map(result => new Document({
-              pageContent: result.text,
-              metadata: {
-                ...result.metadata,
-                relevanceScore: result.relevanceScore,
-                searchType: result.searchType
-              }
-            }))
-            
-            console.log(`Vercel RAG 검색 완료: ${docs.length}개 문서`)
-            return docs
-          } catch (error) {
-            console.error('Vercel RAG 검색 오류:', error)
-            return []
-          }
+    // Vercel 환경에서는 항상 최적화된 RAG 사용
+    this.optimizedRAG = new VercelOptimizedRAG()
+    this.retrieval = {
+      invoke: async (query: string) => {
+        try {
+          console.log('Vercel 최적화 RAG 검색 시작:', query)
+          const results = await this.optimizedRAG!.search(query, 8)
+          
+          const docs = results.map(result => new Document({
+            pageContent: result.text,
+            metadata: {
+              ...result.metadata,
+              relevanceScore: result.relevanceScore,
+              searchType: result.searchType
+            }
+          }))
+          
+          console.log(`Vercel RAG 검색 완료: ${docs.length}개 문서`)
+          return docs
+        } catch (error) {
+          console.error('Vercel RAG 검색 오류:', error)
+          return []
         }
       }
-    } else {
-      // 로컬 환경에서는 기존 벡터 검색 사용
-      this.retrieval = {
-        invoke: async (query: string) => {
-          try {
-            console.log('로컬 벡터 RAG 검색 시작:', query)
-            
-            // Supabase가 설정되어 있는지 확인
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-            
-            if (!supabaseUrl || !supabaseKey) {
-              console.log('Supabase 설정이 없어 기본 검색을 사용합니다.')
-              return []
-            }
+    }
 
             // 1. 벡터 검색 (의미적 유사도)
             let vectorResults: any[] = []
@@ -191,6 +173,40 @@ export class AQGAgent {
           }
         }
       }
+    }
+  }
+
+  // Supabase 폴백 검색 함수
+  async fallbackSupabaseSearch(query: string) {
+    try {
+      console.log('Supabase 폴백 검색 시작:', query)
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.log('Supabase 설정이 없어 빈 결과를 반환합니다.')
+        return []
+      }
+
+      // 벡터 검색 시도
+      const queryEmbedding = await generateSingleEmbedding(query)
+      const results = await searchSimilarVectors(queryEmbedding, 8, 0.7)
+      
+      const docs = results.map(result => new Document({
+        pageContent: result.chunk_text,
+        metadata: {
+          ...result.metadata,
+          relevanceScore: result.similarity * 10,
+          searchType: 'vector'
+        }
+      }))
+      
+      console.log(`Supabase 폴백 검색 완료: ${docs.length}개 문서`)
+      return docs
+    } catch (error) {
+      console.error('Supabase 폴백 검색 오류:', error)
+      return []
     }
   }
 
