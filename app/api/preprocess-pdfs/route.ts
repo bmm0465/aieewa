@@ -8,9 +8,8 @@ import { processChunksWithEmbeddings } from '@/lib/embeddings'
 // 서버리스 환경에서 안전한 PDF 파싱
 async function parsePdf(buffer: Buffer): Promise<string> {
   try {
-    // 동적 import로 서버리스 환경에서 안전하게 로드
-    const pdfParseModule = await import('pdf-parse')
-    const pdfParse = pdfParseModule.default || pdfParseModule
+    // CommonJS 방식으로 require 사용
+    const pdfParse = require('pdf-parse')
     const result = await pdfParse(buffer)
     return result.text
   } catch (error) {
