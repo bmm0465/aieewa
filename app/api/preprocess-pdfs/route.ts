@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
-const pdfParse = require('pdf-parse')
 import { getServerSupabaseClient } from '@/lib/supabase'
 import { processChunksWithEmbeddings } from '@/lib/embeddings'
+
+// 서버리스 환경에서 안전한 PDF 파싱
+async function parsePdf(buffer: Buffer): Promise<string> {
+  try {
+    // 동적 import로 서버리스 환경에서 안전하게 로드
+    const pdfParse = await import('pdf-parse')
+    const result = await pdfParse.default(buffer)
+    return result.text
+  } catch (error) {
+    console.error('PDF 파싱 오류:', error)
+    throw new Error('PDF 파일을 읽을 수 없습니다.')
+  }
+}
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5분으로 증가 (여러 PDF 처리 시간 고려)
@@ -134,8 +146,7 @@ export async function POST(request: NextRequest) {
         const fileBuffer = await readFile(filePath)
         
         // PDF 파싱
-        const pdfData = await pdfParse(fileBuffer)
-        const text = pdfData.text
+        const text = await parsePdf(fileBuffer)
 
         if (!text || text.trim().length === 0) {
           console.warn(`${filename}: 텍스트를 추출할 수 없습니다.`)

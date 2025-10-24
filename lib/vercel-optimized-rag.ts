@@ -59,25 +59,39 @@ export class VercelOptimizedRAG {
     
     if (keywords.length === 0) return []
 
-    const keywordConditions = keywords.map(keyword => `chunk_text.ilike.%${keyword}%`).join(',')
-    
-    const { data: chunks, error } = await this.supabase
-      .from('document_chunks')
-      .select('chunk_text, metadata')
-      .or(keywordConditions)
-      .limit(limit * 2) // 더 많이 가져와서 필터링
+    try {
+      // 특수문자 이스케이프 처리
+      const escapedKeywords = keywords.map(keyword => 
+        keyword.replace(/[%_\\]/g, '\\$&') // SQL 특수문자 이스케이프
+      )
+      
+      // 간단한 키워드 검색 (복잡한 OR 쿼리 대신)
+      const { data: chunks, error } = await this.supabase
+        .from('document_chunks')
+        .select('chunk_text, metadata')
+        .limit(limit * 3) // 더 많이 가져와서 클라이언트에서 필터링
 
-    if (error || !chunks) {
-      console.error('키워드 검색 오류:', error)
+      if (error || !chunks) {
+        console.error('키워드 검색 오류:', error)
+        return []
+      }
+
+      // 클라이언트에서 키워드 매칭
+      const filteredChunks = chunks.filter(chunk => {
+        const text = chunk.chunk_text.toLowerCase()
+        return escapedKeywords.some(keyword => text.includes(keyword.toLowerCase()))
+      })
+
+      return filteredChunks.map(chunk => ({
+        text: chunk.chunk_text,
+        metadata: chunk.metadata,
+        relevanceScore: this.calculateKeywordScore(chunk.chunk_text, query, keywords),
+        searchType: 'keyword' as const
+      }))
+    } catch (error) {
+      console.error('키워드 검색 처리 오류:', error)
       return []
     }
-
-    return chunks.map(chunk => ({
-      text: chunk.chunk_text,
-      metadata: chunk.metadata,
-      relevanceScore: this.calculateKeywordScore(chunk.chunk_text, query, keywords),
-      searchType: 'keyword' as const
-    }))
   }
 
   // 벡터 검색 (제한적)
